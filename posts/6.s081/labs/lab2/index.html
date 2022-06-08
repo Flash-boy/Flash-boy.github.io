@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+
+
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; block-all-mixed-content; default-src 'self'; child-src 'self'; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net/; form-action 'self'; frame-src 'self'; img-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdn.jsdelivr.net/; script-src 'self' 'unsafe-inline' https://www.google-analytics.com https://cdn.jsdelivr.net/; prefetch-src 'self'; connect-src 'self' https://www.google-analytics.com;">
+
+
+
+
+<meta name="author" content="Yang Wei">
+<meta name="description" content="System calls实验目标本实验主要是去了解系统调用是如何实现的，xv6提供了20多个系统调用，系统调用采用的是一种trap机制，并不是向传统的用户态函数调用，这里需要通过trap机制，进入内核，执行完实际的系统调用，然后切换回用户态程序。要完成本lab，需要仔细阅读以下几个文件的源代码。
+user/user.h 用户系统调用的函数原型，以及一些用户函数原型。 user/usys.pl 用户系统调用函数原型实现的汇编脚本。 kernel/syscall.h 系统调用编号 kernel/syscall.c 内核系统调用接口实现 kernel/sysproc.c 内核实际系统调用函数实现 总结一下，系统调用实际过程和步骤
+用户调用user/user.h中声明的系统调用函数 user/usys.pl中的汇编代码表示一个系统调用只是将系统调用编号放进a7寄存器之，然后调用ecall指令进入内核的trap中 内核在trap中处理，运行kernel/syscall.c中的syscall函数 syscall函数通过a7寄存器的系统调用编号找到对应的函数(实现在kernel/sysproc.c中) 运行kernel/sysproc.c中对应的系统调用函数 实验详解System call tracing (moderate)实验要求实现trace函数，通过trace函数传入一个mask,可以追踪程序在运行过程中调用过哪些对应系统调用，。根据hint的提示 一个很自然的想法是在运行kernel/syscall.c中的syacall中处理，当我们调用系统函数时，会走到该函数， 通过判断系统调用是否为我们需要追踪的系统调用，如果是，输出相关消息，如何保存我们需要追踪的系统调用mask，根据提示在struct proc中进行保存。解决方法如下。
+在user/user.h中声明trace系统调用和原型，以及在user/usys.pl脚本中添加对应的实现
+// user/user.h int trace(int); // user/usys.pl entry(&#34;trace&#34;); 添加系统调用编号到kernel/syscall.h中
+// kernel/syscall.h #define SYS_trace 22 修改kernel/syscall.c中的函数指针数组，以及定义函数名字符串数组，以及在
+// kernel/syscall.c extern uint64 sys_trace(void); static uint64 (*syscalls[])(void) = { // ... [SYS_trace] sys_trace, }; static char* syscallsStr[] = { // ... [SYS_trace] &#34;syscall trace&#34;, }; void syscall(void) { int num; struct proc *p = myproc(); num = p-&gt;trapframe-&gt;a7; if(num &gt; 0 &amp;&amp; num &lt; NELEM(syscalls) &amp;&amp; syscalls[num]) { p-&gt;trapframe-&gt;a0 = syscalls[num](); // 如果系统调用编号在掩码中打印追踪信息 // a0寄存器保存着系统调用返回值 if(p-&gt;trace_mask &amp; (1 &lt;&lt; num)){ printf(&#34;%d: %s -&gt; %d\n&#34;, p-&gt;pid, syscallsStr[num], p-&gt;trapframe-&gt;a0); } } else { printf(&#34;%d %s: unknown sys call %d\n&#34;, p-&gt;pid, p-&gt;name, num); p-&gt;trapframe-&gt;a0 = -1; } } 在kernel/proc.">
+<meta name="keywords" content="blog,developer,personal">
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Lab2 System calls"/>
+<meta name="twitter:description" content="System calls实验目标本实验主要是去了解系统调用是如何实现的，xv6提供了20多个系统调用，系统调用采用的是一种trap机制，并不是向传统的用户态函数调用，这里需要通过trap机制，进入内核，执行完实际的系统调用，然后切换回用户态程序。要完成本lab，需要仔细阅读以下几个文件的源代码。
+user/user.h 用户系统调用的函数原型，以及一些用户函数原型。 user/usys.pl 用户系统调用函数原型实现的汇编脚本。 kernel/syscall.h 系统调用编号 kernel/syscall.c 内核系统调用接口实现 kernel/sysproc.c 内核实际系统调用函数实现 总结一下，系统调用实际过程和步骤
+用户调用user/user.h中声明的系统调用函数 user/usys.pl中的汇编代码表示一个系统调用只是将系统调用编号放进a7寄存器之，然后调用ecall指令进入内核的trap中 内核在trap中处理，运行kernel/syscall.c中的syscall函数 syscall函数通过a7寄存器的系统调用编号找到对应的函数(实现在kernel/sysproc.c中) 运行kernel/sysproc.c中对应的系统调用函数 实验详解System call tracing (moderate)实验要求实现trace函数，通过trace函数传入一个mask,可以追踪程序在运行过程中调用过哪些对应系统调用，。根据hint的提示 一个很自然的想法是在运行kernel/syscall.c中的syacall中处理，当我们调用系统函数时，会走到该函数， 通过判断系统调用是否为我们需要追踪的系统调用，如果是，输出相关消息，如何保存我们需要追踪的系统调用mask，根据提示在struct proc中进行保存。解决方法如下。
+在user/user.h中声明trace系统调用和原型，以及在user/usys.pl脚本中添加对应的实现
+// user/user.h int trace(int); // user/usys.pl entry(&#34;trace&#34;); 添加系统调用编号到kernel/syscall.h中
+// kernel/syscall.h #define SYS_trace 22 修改kernel/syscall.c中的函数指针数组，以及定义函数名字符串数组，以及在
+// kernel/syscall.c extern uint64 sys_trace(void); static uint64 (*syscalls[])(void) = { // ... [SYS_trace] sys_trace, }; static char* syscallsStr[] = { // ... [SYS_trace] &#34;syscall trace&#34;, }; void syscall(void) { int num; struct proc *p = myproc(); num = p-&gt;trapframe-&gt;a7; if(num &gt; 0 &amp;&amp; num &lt; NELEM(syscalls) &amp;&amp; syscalls[num]) { p-&gt;trapframe-&gt;a0 = syscalls[num](); // 如果系统调用编号在掩码中打印追踪信息 // a0寄存器保存着系统调用返回值 if(p-&gt;trace_mask &amp; (1 &lt;&lt; num)){ printf(&#34;%d: %s -&gt; %d\n&#34;, p-&gt;pid, syscallsStr[num], p-&gt;trapframe-&gt;a0); } } else { printf(&#34;%d %s: unknown sys call %d\n&#34;, p-&gt;pid, p-&gt;name, num); p-&gt;trapframe-&gt;a0 = -1; } } 在kernel/proc."/>
+
+<meta property="og:title" content="Lab2 System calls" />
+<meta property="og:description" content="System calls实验目标本实验主要是去了解系统调用是如何实现的，xv6提供了20多个系统调用，系统调用采用的是一种trap机制，并不是向传统的用户态函数调用，这里需要通过trap机制，进入内核，执行完实际的系统调用，然后切换回用户态程序。要完成本lab，需要仔细阅读以下几个文件的源代码。
+user/user.h 用户系统调用的函数原型，以及一些用户函数原型。 user/usys.pl 用户系统调用函数原型实现的汇编脚本。 kernel/syscall.h 系统调用编号 kernel/syscall.c 内核系统调用接口实现 kernel/sysproc.c 内核实际系统调用函数实现 总结一下，系统调用实际过程和步骤
+用户调用user/user.h中声明的系统调用函数 user/usys.pl中的汇编代码表示一个系统调用只是将系统调用编号放进a7寄存器之，然后调用ecall指令进入内核的trap中 内核在trap中处理，运行kernel/syscall.c中的syscall函数 syscall函数通过a7寄存器的系统调用编号找到对应的函数(实现在kernel/sysproc.c中) 运行kernel/sysproc.c中对应的系统调用函数 实验详解System call tracing (moderate)实验要求实现trace函数，通过trace函数传入一个mask,可以追踪程序在运行过程中调用过哪些对应系统调用，。根据hint的提示 一个很自然的想法是在运行kernel/syscall.c中的syacall中处理，当我们调用系统函数时，会走到该函数， 通过判断系统调用是否为我们需要追踪的系统调用，如果是，输出相关消息，如何保存我们需要追踪的系统调用mask，根据提示在struct proc中进行保存。解决方法如下。
+在user/user.h中声明trace系统调用和原型，以及在user/usys.pl脚本中添加对应的实现
+// user/user.h int trace(int); // user/usys.pl entry(&#34;trace&#34;); 添加系统调用编号到kernel/syscall.h中
+// kernel/syscall.h #define SYS_trace 22 修改kernel/syscall.c中的函数指针数组，以及定义函数名字符串数组，以及在
+// kernel/syscall.c extern uint64 sys_trace(void); static uint64 (*syscalls[])(void) = { // ... [SYS_trace] sys_trace, }; static char* syscallsStr[] = { // ... [SYS_trace] &#34;syscall trace&#34;, }; void syscall(void) { int num; struct proc *p = myproc(); num = p-&gt;trapframe-&gt;a7; if(num &gt; 0 &amp;&amp; num &lt; NELEM(syscalls) &amp;&amp; syscalls[num]) { p-&gt;trapframe-&gt;a0 = syscalls[num](); // 如果系统调用编号在掩码中打印追踪信息 // a0寄存器保存着系统调用返回值 if(p-&gt;trace_mask &amp; (1 &lt;&lt; num)){ printf(&#34;%d: %s -&gt; %d\n&#34;, p-&gt;pid, syscallsStr[num], p-&gt;trapframe-&gt;a0); } } else { printf(&#34;%d %s: unknown sys call %d\n&#34;, p-&gt;pid, p-&gt;name, num); p-&gt;trapframe-&gt;a0 = -1; } } 在kernel/proc." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://flash-boy.github.io/posts/6.s081/labs/lab2/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2022-06-05T00:00:00+00:00" />
+<meta property="article:modified_time" content="2022-06-05T00:00:00+00:00" />
+
+
+
+
+  <title>Yang Wei</title>
+
+  
+  <link rel="canonical" href="https://flash-boy.github.io/posts/6.s081/labs/lab2/">
+  
+
+  <link rel="preload" href="../../../../fonts/forkawesome-webfont.woff2?v=1.2.0" as="font" type="font/woff2" crossorigin>
+
+
+  
+  
+  <link rel="stylesheet" href="../../../../css/coder.min.6b1a4fbc48955b72aea7913e43fabeb45e8bc120da5aa41b598dd33adcac4b59.css" integrity="sha256-axpPvEiVW3Kup5E&#43;Q/q&#43;tF6LwSDaWqQbWY3TOtysS1k=" crossorigin="anonymous" media="screen" />
+
+
+
+
+
+  
+  
+    
+    
+    <link rel="stylesheet" href="../../../../css/coder-dark.min.39e41a7f16bdf8cb16e43cae7d714fa1016f1d2d2898a5b3f27f42c9979204e2.css" integrity="sha256-OeQafxa9&#43;MsW5DyufXFPoQFvHS0omKWz8n9CyZeSBOI=" crossorigin="anonymous" media="screen" />
+  
+
+
+
+   
+
+
+
+
+  <link rel="icon" type="image/png" href="../../../../images/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="../../../../images/favicon-16x16.png" sizes="16x16">
+
+<link rel="apple-touch-icon" href="../../../../images/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../../images/apple-touch-icon.png">
+
+<link rel="manifest" href="../../../../site.webmanifest">
+<link rel="mask-icon" href="../../../../images/safari-pinned-tab.svg" color="#5bbad5">
+
+
+  
+
+  <meta name="generator" content="Hugo 0.100.1" />
+
+
+  
+
+</head>
+
+
+
+
+
+
+
+<body class="preload-transitions colorscheme-auto">
+  
+<div class="float-container">
+    <a id="dark-mode-toggle" class="colorscheme-toggle">
+        <i class="fa fa-adjust fa-fw" aria-hidden="true"></i>
+    </a>
+</div>
+
+
+  <main class="wrapper">
+    <nav class="navigation">
+  <section class="container">
+    <a class="navigation-title" href="../../../../">
+      Yang Wei
+    </a>
+    
+      <input type="checkbox" id="menu-toggle" />
+      <label class="menu-button float-right" for="menu-toggle">
+        <i class="fa fa-bars fa-fw" aria-hidden="true"></i>
+      </label>
+      <ul class="navigation-list">
+        
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../about/">About</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../posts/">Blog</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../projects/">Projects</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../contact/">Contact me</a>
+            </li>
+          
+        
+        
+      </ul>
+    
+  </section>
+</nav>
+
+
+    <div class="content">
+      
+  <section class="container post">
+    <article>
+      <header>
+        <div class="post-title">
+          <h1 class="title">
+            <a class="title-link" href="https://flash-boy.github.io/posts/6.s081/labs/lab2/">
+              Lab2 System calls
+            </a>
+          </h1>
+        </div>
+        <div class="post-meta">
+          <div class="date">
+            <span class="posted-on">
+              <i class="fa fa-calendar" aria-hidden="true"></i>
+              <time datetime="2022-06-05T00:00:00Z">
+                June 5, 2022
+              </time>
+            </span>
+            <span class="reading-time">
+              <i class="fa fa-clock-o" aria-hidden="true"></i>
+              2-minute read
+            </span>
+          </div>
+          
+          <div class="categories">
+  <i class="fa fa-folder" aria-hidden="true"></i>
+    <a href="../../../../categories/operator-system/">Operator System</a></div>
+
+          <div class="tags">
+  <i class="fa fa-tag" aria-hidden="true"></i>
+    <span class="tag">
+      <a href="../../../../tags/c/">C</a>
+    </span>
+      <span class="separator">•</span>
+    <span class="tag">
+      <a href="../../../../tags/course/">Course</a>
+    </span>
+      <span class="separator">•</span>
+    <span class="tag">
+      <a href="../../../../tags/mit/">MIT</a>
+    </span></div>
+
+        </div>
+      </header>
+
+      <div>
+        
+        <h1 id="system-callshttpspdoscsailmitedu68282020labssyscallhtml">
+  <a href="https://pdos.csail.mit.edu/6.828/2020/labs/syscall.html">System calls</a>
+  <a class="heading-link" href="#system-callshttpspdoscsailmitedu68282020labssyscallhtml">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h1>
+<h2 id="实验目标">
+  实验目标
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e7%9b%ae%e6%a0%87">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<p>本实验主要是去了解系统调用是如何实现的，xv6提供了20多个系统调用，系统调用采用的是一种trap机制，并不是向传统的用户态函数调用，这里需要通过trap机制，进入内核，执行完实际的系统调用，然后切换回用户态程序。要完成本lab，需要仔细阅读以下几个文件的源代码。</p>
+<ul>
+<li>user/user.h 用户系统调用的函数原型，以及一些用户函数原型。</li>
+<li>user/usys.pl 用户系统调用函数原型实现的汇编脚本。</li>
+<li>kernel/syscall.h 系统调用编号</li>
+<li>kernel/syscall.c 内核系统调用接口实现</li>
+<li>kernel/sysproc.c 内核实际系统调用函数实现</li>
+</ul>
+<p>总结一下，系统调用实际过程和步骤</p>
+<ol>
+<li>用户调用user/user.h中声明的系统调用函数</li>
+<li>user/usys.pl中的汇编代码表示一个系统调用只是将系统调用编号放进a7寄存器之，然后调用ecall指令进入内核的trap中</li>
+<li>内核在trap中处理，运行kernel/syscall.c中的syscall函数</li>
+<li>syscall函数通过a7寄存器的系统调用编号找到对应的函数(实现在kernel/sysproc.c中)</li>
+<li>运行kernel/sysproc.c中对应的系统调用函数</li>
+</ol>
+<h2 id="实验详解">
+  实验详解
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e8%af%a6%e8%a7%a3">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<h3 id="system-call-tracing-moderate">
+  System call tracing (moderate)
+  <a class="heading-link" href="#system-call-tracing-moderate">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>实验要求实现trace函数，通过trace函数传入一个mask,可以追踪程序在运行过程中调用过哪些对应系统调用，。根据hint的提示
+一个很自然的想法是在运行kernel/syscall.c中的syacall中处理，当我们调用系统函数时，会走到该函数，
+通过判断系统调用是否为我们需要追踪的系统调用，如果是，输出相关消息，如何保存我们需要追踪的系统调用mask，根据提示在struct proc中进行保存。解决方法如下。</p>
+<p>在user/user.h中声明trace系统调用和原型，以及在user/usys.pl脚本中添加对应的实现</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// user/user.h
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">int</span> trace(<span style="">int</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// user/usys.pl
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>entry(<span style="font-style:italic">&#34;trace&#34;</span>);
+</span></span></code></pre></div><p>添加系统调用编号到kernel/syscall.h中</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/syscall.h
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">#define SYS_trace 22
+</span></span></span></code></pre></div><p>修改kernel/syscall.c中的函数指针数组，以及定义函数名字符串数组，以及在</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/syscall.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="font-weight:bold">extern</span> uint64 sys_trace(<span style="">void</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">static</span> uint64 (*syscalls[])(<span style="">void</span>) = {
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>[SYS_trace]   sys_trace, 
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">static</span> <span style="">char</span>* syscallsStr[] = {
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>[SYS_trace]   <span style="font-style:italic">&#34;syscall trace&#34;</span>,
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="">void</span>
+</span></span><span style="display:flex;"><span>syscall(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="">int</span> num;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">struct</span> proc *p = myproc();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  num = p-&gt;trapframe-&gt;a7;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">if</span>(num &gt; 0 &amp;&amp; num &lt; NELEM(syscalls) &amp;&amp; syscalls[num]) {
+</span></span><span style="display:flex;"><span>    p-&gt;trapframe-&gt;a0 = syscalls[num]();
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// 如果系统调用编号在掩码中打印追踪信息
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="font-style:italic">// a0寄存器保存着系统调用返回值
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="font-weight:bold">if</span>(p-&gt;trace_mask &amp; (1 &lt;&lt; num)){
+</span></span><span style="display:flex;"><span>        printf(<span style="font-style:italic">&#34;%d: %s -&gt; %d</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, p-&gt;pid, syscallsStr[num], p-&gt;trapframe-&gt;a0);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  } <span style="font-weight:bold">else</span> {
+</span></span><span style="display:flex;"><span>    printf(<span style="font-style:italic">&#34;%d %s: unknown sys call %d</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>,
+</span></span><span style="display:flex;"><span>            p-&gt;pid, p-&gt;name, num);
+</span></span><span style="display:flex;"><span>    p-&gt;trapframe-&gt;a0 = -1;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>在kernel/proc.h中添加字段trace_mask</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/proc.h
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="font-weight:bold">struct</span> proc{
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="">int</span> trace_mask;  
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>在fork函数中需要复制该字段的值到子进程</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/proc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">int</span> fork(<span style="">void</span>){
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>np-&gt;trace_mask = p-&gt;trace_mask;
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>}
+</span></span></code></pre></div><p>最后实现kernel/sysproc.c中实现sys_trace函数，初始化trace_mask字段的值</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/sysproc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// trace syscall save the mask to struct proc
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>uint64 sys_trace(<span style="">void</span>){
+</span></span><span style="display:flex;"><span>    <span style="">int</span> mask;
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// 获取掩码参数值
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="font-weight:bold">if</span>(argint(0, &amp;mask) &lt; 0)
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">return</span> -1;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">struct</span> proc* p = myproc();
+</span></span><span style="display:flex;"><span>    p-&gt;trace_mask = mask;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">return</span> 0;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>效果如图所示  <br>
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab2-1.png" alt=""></p>
+<h3 id="sysinfo-moderate">
+  Sysinfo (moderate)
+  <a class="heading-link" href="#sysinfo-moderate">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>这个系统调用主要的功能是收集当前系统的空闲内存和空闲进程数，有前面的基础实现起来很简单，这里只给出重要的代码实现</p>
+<p>sys_sysinfo函数实现</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/sysproc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// sysinfo syscall 
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>uint64 sys_sysinfo(<span style="">void</span>){
+</span></span><span style="display:flex;"><span>    uint64 addr;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(argaddr(0, &amp;addr) &lt; 0)
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">return</span> -1;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">struct</span> sysinfo sf;
+</span></span><span style="display:flex;"><span>    sf.freemem = freemem_size(); <span style="font-style:italic">// 获取freemem大小
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    sf.nproc = used_procnum();   <span style="font-style:italic">// 获取
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="font-weight:bold">struct</span> proc* p = myproc();
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// 将数据复制到用户进程addr地址指向的strcut sysinfo中
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="font-weight:bold">if</span>(copyout(p-&gt;pagetable, addr, (<span style="">char</span>*)&amp;sf, <span style="font-weight:bold">sizeof</span>(sf)) &lt; 0) 
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">return</span> -1;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">return</span> 0;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="">在</span>kalloc.c中实现freemem_size函数<span style="">，</span>
+</span></span><span style="display:flex;"><span><span style="">```</span>c
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// kernel/kalloc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">struct</span> {
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">struct</span> spinlock lock;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">struct</span> run *freelist;
+</span></span><span style="display:flex;"><span>  <span style="">int</span> pagenum; <span style="font-style:italic">// 添加字段记录空闲page数
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>} kmem;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="">void</span>
+</span></span><span style="display:flex;"><span>kfree(<span style="">void</span> *pa)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  acquire(&amp;kmem.lock);
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  kmem.pagenum++; <span style="font-style:italic">// kfree中增加空闲page数
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  release(&amp;kmem.lock);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="">void</span> *
+</span></span><span style="display:flex;"><span>kalloc(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  acquire(&amp;kmem.lock);
+</span></span><span style="display:flex;"><span>  r = kmem.freelist;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">if</span>(r){
+</span></span><span style="display:flex;"><span>    kmem.freelist = r-&gt;next;
+</span></span><span style="display:flex;"><span>    kmem.pagenum--; <span style="font-style:italic">//kalloc中减少空闲page数
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  }
+</span></span><span style="display:flex;"><span>  release(&amp;kmem.lock);
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// return the free mem size(bytes) 
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>uint64 freemem_size(<span style="">void</span>){
+</span></span><span style="display:flex;"><span>    uint64 n;
+</span></span><span style="display:flex;"><span>    acquire(&amp;kmem.lock);
+</span></span><span style="display:flex;"><span>    n = kmem.pagenum * PGSIZE;     
+</span></span><span style="display:flex;"><span>    release(&amp;kmem.lock);
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">return</span> n;
+</span></span><span style="display:flex;"><span>} 
+</span></span></code></pre></div><p>在proc.c中实现used_procnum函数</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/proc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">int</span> nproc = 0; <span style="font-style:italic">// 全局变量记录当前使用进程数
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="font-weight:bold">struct</span> spinlock nproc_lock; <span style="font-style:italic">// 锁保证nproc数据的正确性
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// allocproc分配unused proc
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="font-weight:bold">static</span> <span style="font-weight:bold">struct</span> proc*
+</span></span><span style="display:flex;"><span>allocproc(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>found:
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  acquire(&amp;nproc_lock);
+</span></span><span style="display:flex;"><span>  nproc = nproc + 1; <span style="font-style:italic">//增加进程数
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  release(&amp;nproc_lock);
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">return</span> p;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// freeproc释放进程
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="font-weight:bold">static</span> <span style="">void</span>
+</span></span><span style="display:flex;"><span>freeproc(<span style="font-weight:bold">struct</span> proc *p)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  acquire(&amp;nproc_lock);
+</span></span><span style="display:flex;"><span>  nproc = nproc - 1;
+</span></span><span style="display:flex;"><span>  release(&amp;nproc_lock);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>uint64 used_procnum(){
+</span></span><span style="display:flex;"><span>    uint64 n;
+</span></span><span style="display:flex;"><span>    acquire(&amp;nproc_lock);
+</span></span><span style="display:flex;"><span>    n = nproc;
+</span></span><span style="display:flex;"><span>    release(&amp;nproc_lock);
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">return</span> n;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>运行效果图 <br>
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab2-2.png" alt=""></p>
+<h2 id="实验总结">
+  实验总结
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e6%80%bb%e7%bb%93">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<p>总体来说该lab不难，主要是需要花时间去看内核源代码。整个xv6代码写的很规范，各种注释很全，最后运行 make grade可 以得到该lab的所有测试如图  <br>
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab2-3.png" alt=""></p>
+
+      </div>
+
+
+      <footer>
+        
+
+
+        
+        
+        
+      </footer>
+    </article>
+
+    
+  </section>
+
+    </div>
+
+    <footer class="footer">
+  <section class="container">
+    ©
+    
+      2019 -
+    
+    2022
+     Yang Wei 
+    ·
+    
+    Powered by <a href="https://gohugo.io/">Hugo</a> & <a href="https://github.com/luizdepra/hugo-coder/">Coder</a>.
+    
+  </section>
+</footer>
+
+  </main>
+
+  
+  
+  <script src="../../../../js/coder.min.f411a1043e37c7c14dfb03f4d94d60d9ee69cfa413b16d0fd4f28695babb82bb.js" integrity="sha256-9BGhBD43x8FN&#43;wP02U1g2e5pz6QTsW0P1PKGlbq7grs="></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</body>
+
+</html>

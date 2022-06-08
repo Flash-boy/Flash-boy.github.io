@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Course on Yang Wei</title>
+    <link>https://flash-boy.github.io/tags/course/</link>
+    <description>Recent content in Course on Yang Wei</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Sun, 05 Jun 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://flash-boy.github.io/tags/course/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Lab0 环境搭建</title>
+      <link>https://flash-boy.github.io/posts/6.s081/labs/lab0/</link>
+      <pubDate>Sun, 05 Jun 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://flash-boy.github.io/posts/6.s081/labs/lab0/</guid>
+      <description>环境搭建写在前面要完成课程实验，希望你可以主动去学习一些工具的使用，将有助于高效完成整个实验，这些工具也是作为一个linux系统开发人员必备的知识，我自己常用的工具主要有以下几个：
+tmux：终端复用工具 vim：代码编辑器 git：版本控制工具 gdb：代码调试器 tmux：做整个实验，我们必然需要打开多个文件，查看多个xv6内核的源码，tmux可以帮住我们同时打开多个窗口，并且在多个窗口来回切换。相信我真的特别好用。😉
+vim：linux自带的代码编辑器，不必多说，喜欢的喜欢不得了，不用的嫌麻烦，我觉得还是很有必要去学习的。vim是学习成本比较高的，学习路线比较陡峭，学到手收益也是很大的。
+git：每个开发人员都应该掌握的代码管理工具，学习git不仅仅是学习命令的使用，更应该学习它的底层实验原理，这样会更加理解每个命令的实际作用。
+gdb：linux下的代码调试工具，是真的好用，也是该课程的调试工具。
+可能以上工具觉得有点杂，但是有一门由MIT助教发起的课程，叫做计算机教育中缺失的一课。该课程不长10个小时左右，就介绍了上述的各种工具，强烈建议可以去学习一下，对于工作开发十分有用，这里是该课的课程主页和视频资源，B站，youtube。
+通过计算机教育中缺失的一课我还学习到了一个很重要的工具dotfiles，如何管理你的每个工具的配置文件，当你在切换工作机器或者电脑时，能很方便的配置你的计算机，定制化你的配置，包括shell、vim、tmux、git等。这门课的主讲人之一Anish Athalye开发了一个dotbot,可以很方便的管理你的dotfiles。我参考他的dotfiles编写了自己的dotfiles,有需要的自取^_^。
+当然，也希望你目前能够翻墙，因为这有助于你在linux下下载某些软件包时不会因为网络原因无法成功。懂的都懂 😏
+官方指导配置环境官方给出了不同机器的配置方式，这里主要介绍在window下利用虚拟机进行配置。推荐采用ubuntu20.04系统，因为没什么坑😂。推荐使用Virtual Box安装ubuntu20.04。
+使用官方给的命令即可初步配置环境
+sudo apt-get install git build-essential gdb-multiarch qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu sudo apt-get remove qemu-system-misc sudo apt-get install qemu-system-misc=1:4.2-3ubuntu6 接着安装官方指引确认以下两个软件已经安装
+~ &amp;gt; riscv64-unknown-elf-gcc --version riscv64-unknown-elf-gcc () 9.3.0 ... # 可以看到输出的版本并没有官方指导书上一致，没有关系 # 如果出现了 Command &amp;#39;riscv64-unknown-elf-gcc&amp;#39; not found 字样，说明没有安装该工具，运行下面命令即可 # sudo apt install gcc-riscv64-unknown-elf ~ &amp;gt; qemu-system-riscv64 --version QEMU emulator version 4.2.1 (Debian 1:4.</description>
+    </item>
+    
+    <item>
+      <title>Lab1 Utilities</title>
+      <link>https://flash-boy.github.io/posts/6.s081/labs/lab1/</link>
+      <pubDate>Sun, 05 Jun 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://flash-boy.github.io/posts/6.s081/labs/lab1/</guid>
+      <description>Utilities实验目标本实验主要是来熟悉xv6和它的系统调用，系统调用是一类特殊的函数，是操作系统提供的一类对特殊资源的访问，像磁盘，IO等。本课程有一个核心就是理解系统调用是如何实现的，在后续课程内容会又详细介绍。在命令行中我们经常看到许多内置的命令例如 cd, ls等，这些命令就是利用系统调用封装的用户级程序。lab会要求实现几个类似的工具命令。总体来说本lab不难，主要是对xv6的熟悉。
+每个实验都有相应的代码分支管理，所有在每个实验需要切换到对应分支。基本按照lab主页的提示(hint)就可以完成该实验，
+实验详解Boot xv6 (easy)启动xv6,运行内置的ls命令。
+很简单，只要照着做就能看到如下效果。
+xv6操作系统自己实验了一些常用的命令，像cat, ls, echo等。接下来的任务就是实现一些类似的命令。
+1. sleep (easy)sleep 要求在程序sleep一小段时间，解决方法是调用xv6系统提供的系统调用函数。这里说一下xv6源代码主要有两个文件夹 kernel/ 和 user/。kernel主要是内核代码的实现，user则是用户编写的代码，例如前面的cat, ls, echo以及我们实现的sleep等。因此按照要求编写代码 user/sleep.c代码如下
+// user/sleep.c #include &amp;#34;kernel/types.h&amp;#34; #include &amp;#34;kernel/stat.h&amp;#34; #include &amp;#34;user/user.h&amp;#34; int main(int argc, char* argv[]){ if(argc != 2){ printf(&amp;#34;Usage: sleep &amp;lt;seconds&amp;gt;\n&amp;#34;); exit(1); } sleep(atoi(argv[1]) * 10); exit(0); } user/user.h头文件包含了xv6提供的系统调用的声明，需要包含。
+程序的返回xv6中必须用exit函数。
+别忘了更新Makefile
+编译运行，并输入sleep可以看到如下的
+pingpong (easy)pipe是进程通信的一种方式，pipe是一种单向的数据传输，从一端输入，从另一端输出。pingpong要求在父子进程中传输数据，并输出各自pid。核心就是利用pipe函数两次，利用fork函数创建子进程，在父子进程中注意关闭不需要的读端和写端，然后读写pipe。
+// user/pingpong.c #include &amp;#34;kernel/types.h&amp;#34; #include &amp;#34;kernel/stat.h&amp;#34; #include &amp;#34;user/user.h&amp;#34; int main(int argc, char* argv[]){ int p1[2], p2[2]; if(pipe(p1) &amp;lt; 0 || pipe(p2) &amp;lt; 0){ printf(&amp;#34;Error: pipe()\n&amp;#34;); exit(1); } int pid; if((pid = fork()) == 0){ close(p1[1]); close(p2[0]); char c; int p = getpid(); read(p1[0], &amp;amp;c, 1); printf(&amp;#34;%d: received ping\n&amp;#34;, p); close(p1[0]); write(p2[1], &amp;amp;c, 1); close(p2[1]); }else{ close(p1[0]); close(p2[1]); int p = getpid(); char c; write(p1[1], &amp;#34;w&amp;#34;, 1); close(p1[1]); read(p2[0], &amp;amp;c, 1); printf(&amp;#34;%d: received pong\n&amp;#34;, p); close(p2[0]); } exit(0); } 效果如图</description>
+    </item>
+    
+    <item>
+      <title>Lab2 System calls</title>
+      <link>https://flash-boy.github.io/posts/6.s081/labs/lab2/</link>
+      <pubDate>Sun, 05 Jun 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://flash-boy.github.io/posts/6.s081/labs/lab2/</guid>
+      <description>System calls实验目标本实验主要是去了解系统调用是如何实现的，xv6提供了20多个系统调用，系统调用采用的是一种trap机制，并不是向传统的用户态函数调用，这里需要通过trap机制，进入内核，执行完实际的系统调用，然后切换回用户态程序。要完成本lab，需要仔细阅读以下几个文件的源代码。
+user/user.h 用户系统调用的函数原型，以及一些用户函数原型。 user/usys.pl 用户系统调用函数原型实现的汇编脚本。 kernel/syscall.h 系统调用编号 kernel/syscall.c 内核系统调用接口实现 kernel/sysproc.c 内核实际系统调用函数实现 总结一下，系统调用实际过程和步骤
+用户调用user/user.h中声明的系统调用函数 user/usys.pl中的汇编代码表示一个系统调用只是将系统调用编号放进a7寄存器之，然后调用ecall指令进入内核的trap中 内核在trap中处理，运行kernel/syscall.c中的syscall函数 syscall函数通过a7寄存器的系统调用编号找到对应的函数(实现在kernel/sysproc.c中) 运行kernel/sysproc.c中对应的系统调用函数 实验详解System call tracing (moderate)实验要求实现trace函数，通过trace函数传入一个mask,可以追踪程序在运行过程中调用过哪些对应系统调用，。根据hint的提示 一个很自然的想法是在运行kernel/syscall.c中的syacall中处理，当我们调用系统函数时，会走到该函数， 通过判断系统调用是否为我们需要追踪的系统调用，如果是，输出相关消息，如何保存我们需要追踪的系统调用mask，根据提示在struct proc中进行保存。解决方法如下。
+在user/user.h中声明trace系统调用和原型，以及在user/usys.pl脚本中添加对应的实现
+// user/user.h int trace(int); // user/usys.pl entry(&amp;#34;trace&amp;#34;); 添加系统调用编号到kernel/syscall.h中
+// kernel/syscall.h #define SYS_trace 22 修改kernel/syscall.c中的函数指针数组，以及定义函数名字符串数组，以及在
+// kernel/syscall.c extern uint64 sys_trace(void); static uint64 (*syscalls[])(void) = { // ... [SYS_trace] sys_trace, }; static char* syscallsStr[] = { // ... [SYS_trace] &amp;#34;syscall trace&amp;#34;, }; void syscall(void) { int num; struct proc *p = myproc(); num = p-&amp;gt;trapframe-&amp;gt;a7; if(num &amp;gt; 0 &amp;amp;&amp;amp; num &amp;lt; NELEM(syscalls) &amp;amp;&amp;amp; syscalls[num]) { p-&amp;gt;trapframe-&amp;gt;a0 = syscalls[num](); // 如果系统调用编号在掩码中打印追踪信息 // a0寄存器保存着系统调用返回值 if(p-&amp;gt;trace_mask &amp;amp; (1 &amp;lt;&amp;lt; num)){ printf(&amp;#34;%d: %s -&amp;gt; %d\n&amp;#34;, p-&amp;gt;pid, syscallsStr[num], p-&amp;gt;trapframe-&amp;gt;a0); } } else { printf(&amp;#34;%d %s: unknown sys call %d\n&amp;#34;, p-&amp;gt;pid, p-&amp;gt;name, num); p-&amp;gt;trapframe-&amp;gt;a0 = -1; } } 在kernel/proc.</description>
+    </item>
+    
+    <item>
+      <title>Lab3 Page tables</title>
+      <link>https://flash-boy.github.io/posts/6.s081/labs/lab3/</link>
+      <pubDate>Sun, 05 Jun 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://flash-boy.github.io/posts/6.s081/labs/lab3/</guid>
+      <description>Page tables实验目标本实验主要了解xv6虚拟内存的底层实现，xv6能够运行的机制是内核采用了恒等映射，即把内核的虚拟地址和物理地址在内核页表建立的是恒等映射，同时xv6采用的是三级页表。这个实验主要是弄懂xv6的内核布局以及页表机制，主要的源代码是kernel/kalloc.c, kernel/vm.c, kernel/memlayout.h。
+实验详解Print a page table (easy)主要是实现一个pagetable的层级打印，这个比较简单，只要弄得xv6的pagetable三级页表结构，配合kernel/riscv.h里提供的页表宏很容易得到答案
+// kernel/vm.c // helper funtion for vmprint() static void vmprinthelper(pagetable_t pagetable, int level){ static char* prefix[] = {&amp;#34;..&amp;#34;, &amp;#34;.. ..&amp;#34;, &amp;#34;.. .. ..&amp;#34;}; if(level &amp;gt; 2) return; for(int i = 0; i &amp;lt; 512; i++){ pte_t pte = pagetable[i]; if(pte &amp;amp; PTE_V){ // this PTE points to a lower-level page table. uint64 child = PTE2PA(pte); printf(&amp;#34;%s%d: pte %p pa %p\n&amp;#34;, prefix[level], i, pte, child); vmprinthelper((pagetable_t)child, level + 1); } } } // printf the valid pte of pagetable // pagetable: the physical pagetable address need to print void vmprint(pagetable_t pagetable){ printf(&amp;#34;page table %p\n&amp;#34;, pagetable); vmprinthelper(pagetable, 0); } 效果如图 A kernel page table per process (hard)原先版本的xv6有一个全局的内核页表，采用恒等映射，同时每个进程在用户空间有一个页表。因此，在进程由用户态和内核态切换的过程中，需要切换页表，这会导致cpu的L1Cache失效，降低效率。同时也会造成如果想要将用户态的数据复制到内核态，首先需要主动遍历用户页表得到数据的物理地址，然后因为在内核物理地址和虚拟地址是恒等映射，在利用数据的物理地址进行复制。如果将内核页表和用户页表 合为一个页表，但不同页表项具有不同的权限，这样不仅能解决L1Cache失效的问题，同时也能将用户态数据复制到内核态不需要通过一层转换间接复制来完成数据的复制。</description>
+    </item>
+    
+    <item>
+      <title>Lab4 Traps</title>
+      <link>https://flash-boy.github.io/posts/6.s081/labs/lab4/</link>
+      <pubDate>Sun, 05 Jun 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://flash-boy.github.io/posts/6.s081/labs/lab4/</guid>
+      <description>Traps实验目标系统调用，异常和中断是应用程序需要响应程序或者外部设备必须做出的动作，操作系统采用了trap的方式处理上述三种情况。trap的方式提供了一种安全，可靠的方式对外部输入或者程序系统调用进行响应处理。trap的核心就是利用一段称为trampoline的代码作为&amp;quot;跳板&amp;quot;和利用trapframe保存应用程序运行状态。
+实验详解Backtrace (moderate)程序的栈帧标示着程序的函数调用栈，实现一个函数来打印当前函数的调用栈帧，核心就是利用r_fp函数读取函数的帧指针，一个典型的栈帧是先压入函数返回地址，然后压入(prev)栈帧。如图所示为一个典型的栈帧。
+因此当前的fp-8保存着函数返回地址，fp-16保存着上一个栈帧fp地址。因此backtrace函数如下所示
+// kernel/printf.c // backtrace for debug void backtrace(){ printf(&amp;#34;backtrace:\n&amp;#34;); uint64 fp = r_fp(); // xv6默认用户栈最大为4096KB while(PGROUNDUP(fp) - PGROUNDDOWN(fp) == PGSIZE){ uint64 ra = *(uint64*)((char*)fp - 8); printf(&amp;#34;%p\n&amp;#34;, ra); fp = *(uint64*)((char*)fp - 16); } } 运行效果如图 Alarm (hard)alarm是要你提供一个系统调用实现，每当进程调用该系统调用时，提供两个参数n和fn, 每经过n个系统cpu时间片，执行一次回调函数fn。
+核心思路是理解trap机制，当有一个系统调用通过ecall进入trampoline代码的uservec部分，该段代码保存寄存器状态到p-&amp;gt;trapframe,然后进入kernel/trap.c中的usertrap函数处理，该函数根据进入trap的不同原因调用不同的函数处理。执行完毕后，调用kernel/trap.c中的usertrapret函数，该函数会设置页表和一些p-&amp;gt;trapframe的默认项以供下次trap使用，以及调用trampoline.S中的userret函数，该函数用p-&amp;gt;trapframe的值重新恢复寄存器状态。
+因此，一个核心的思路是将alarm系统调用的参数保存在struct proc中，在每次trap过程中，如果是定时器中断进入trap则需要将对应的ticks加1，一旦达到要求，需要在trap处理函数中将返回值即p-&amp;gt;trapframe-&amp;gt;epc值设置为该fn函数。然后系统会调用该fn函数，但如何返回到一开始的函数调用处呢？答案是利用sigreturn函数，在trap处理函数中保存当前的trapframe到一个新的trapframe中，在sigreturn系统调用中，将trapframe保存为原先的值，因此，sigalarm和sigreturn需要配对使用。
+// kernel/sysproc.c uint64 sys_sigalarm(void){ int alarm_interval; uint64 fn; if(argint(0, &amp;amp;alarm_interval) &amp;lt; 0) return -1; if(argaddr(1, &amp;amp;fn) &amp;lt; 0) return -1; struct proc* p = myproc(); if(alarm_interval &amp;lt; 0) alarm_interval = 0; // 保存参数 p-&amp;gt;alarm_interval = alarm_interval; p-&amp;gt;handler = fn; p-&amp;gt;ticks = 0; return 0; } uint64 sys_sigreturn(void){ struct proc* p = myproc(); *p-&amp;gt;trapframe = *p-&amp;gt;savedtrapframe; p-&amp;gt;ticks = 0; return 0; } // kernel/trap.</description>
+    </item>
+    
+    <item>
+      <title>MIT6.S081 课程学习</title>
+      <link>https://flash-boy.github.io/posts/6.s081/</link>
+      <pubDate>Sun, 05 Jun 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://flash-boy.github.io/posts/6.s081/</guid>
+      <description>MIT6.S081课程学习文章记录了自己学习该门课程的心得，以及一些踩过的坑。同时也是自己第一次写博客的方式进行输出，希望自己以后可以坚持输出。主要内容有以下几部分。
+课程简介 如何学习 课程解析 实验 课程简介MIT6.S081是一门介绍操作系统的课程，课程主要由Frans Kaashoek &amp;amp; Robert Morris两位教授来进行授课。课程是通过讲解两位教授开发的用于教学的类unix的迷你操作系统xv6，主要是为了理解操作系统内核的工作原理，因此适合想要深度学习和理解操作系统的同学。虽然是一门面向本科生的课程，但我觉得还是有一定难度，如果想要独立完成整个课程包括实验部分，我建议不要将这门课程作为操作系统学习的第一门课程，建议先学习 CSAPP，然后再学习这门课程。主要原因有：
+这门课程需要有比较好的C语言基础，debug基础 CSAPP中的linux基础，汇编，函数调用，页表等知识有助于本门课的理解 个人经验，我其实学了两遍这个课程，第一次直接学习本课程（学了一小部分就放弃了），第二次先完成了CSAPP课程的学习，然后完成了该课程的学习。相信我，有了CSAPP的课程铺垫，大部分实验你都能独立解决，更能游刃有余。 如何学习我觉得这门课程的重点是实验，如果你能够独立完成实验，说明你对相应的内容是有足够的了解的，因此，切记、一定、保证独立完成实验，宝宝们一定要独立完成，😄。
+学习过程中我遇到比较好的资源
+视频 翻译 课程主页 翻译是肖宏辉大神对课程每个Lecture内容准确的翻译，搭配视频使用最佳。
+课程主页提供了学习课程所需的所有材料，在深入学习这门课之前，需要仔细浏览课程主页，搞清楚课程主页每个部分包含哪些内容。其中以下几个部分是你需要重点关注的。
+schedule：整个课程表，每节课的video、Preparation、Assignment在课程表里都有贴出 xv6-book：这本书是课程配套的，是课前读物 Reference：一些辅助资料，主要有unix介绍、qemu、RISC-V指令集 Labs：课程的核心部分，后面会详细介绍 接下来说说如何去学习这门课程，也是自己学习的过程，仅限经验参考。总的来说课程的学习分为两大块，课程内容和实验。
+课程内容：内容的学习推荐按照【Preparation】-&amp;gt;【视频】-&amp;gt;【翻译】的顺序。对于每个lecture在课程表里都有对应的预习内容，主要包括xv6-book对应章节的内容，以及部分源码的阅读。然后再去看相应的视频，就不会吃力。最后再去看一遍相应的课程内容翻译。可以说，课程内容的学习绝不是简单的一节课80分钟1.5倍速播放的学习😊(主要嫌弃语速慢)，前期的Preparation的学习也花费了我许多时间（不要害怕英文，我就六级没过的都不感觉有压力）。
+实验：实验切记独立完成，每个实验在课程主页都有相应的介绍，请务必认真阅读。重点每个实验的hints部分，这些hints就是为了引导你完成实验。后续我也会有实验部分的详解，仅供大家参考、交流，如果不自己独立完成实验，而是参考别人的代码，其实收获很小，很多部分自己还是一知半解的。希望大家独立完成。
+课程解析主要是对每个lecture的内容的解析，以及一些重点、难点的记录和分析。参考肖宏辉大神的翻译和自己的理解整理出来。
+Lec01 Introduction and Examples (Robert) Lec03 OS Oraganization and System Calls (Frans) Lec04 Page tables (Frans) Lec05 Calling conventions and stack frames RISC-V (TA) 实验实验部分是自己做实验的思考过程以及踩过的一些坑，详细分析了解决了每一个实验。
+Lab0 环境搭建 Lab1 Utilities Lab2 System calls Lab3 Page tables </description>
+    </item>
+    
+    <item>
+      <title>MIT6.S081 课程学习</title>
+      <link>https://flash-boy.github.io/posts/6.s081/</link>
+      <pubDate>Sun, 05 Jun 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://flash-boy.github.io/posts/6.s081/</guid>
+      <description>MIT6.S081课程学习文章记录了自己学习该门课程的心得，以及一些踩过的坑。同时也是自己第一次写博客的方式进行输出，希望自己以后可以坚持输出。主要内容有以下几部分。
+课程简介 如何学习 课程解析 实验 课程简介MIT6.S081是一门介绍操作系统的课程，课程主要由Frans Kaashoek &amp;amp; Robert Morris两位教授来进行授课。课程是通过讲解两位教授开发的用于教学的类unix的迷你操作系统xv6，主要是为了理解操作系统内核的工作原理，因此适合想要深度学习和理解操作系统的同学。虽然是一门面向本科生的课程，但我觉得还是有一定难度，如果想要独立完成整个课程包括实验部分，我建议不要将这门课程作为操作系统学习的第一门课程，建议先学习 CSAPP，然后再学习这门课程。主要原因有：
+这门课程需要有比较好的C语言基础，debug基础 CSAPP中的linux基础，汇编，函数调用，页表等知识有助于本门课的理解 个人经验，我其实学了两遍这个课程，第一次直接学习本课程（学了一小部分就放弃了），第二次先完成了CSAPP课程的学习，然后完成了该课程的学习。相信我，有了CSAPP的课程铺垫，大部分实验你都能独立解决，更能游刃有余。 如何学习我觉得这门课程的重点是实验，如果你能够独立完成实验，说明你对相应的内容是有足够的了解的，因此，切记、一定、保证独立完成实验，宝宝们一定要独立完成，😄。
+学习过程中我遇到比较好的资源
+视频 翻译 课程主页 翻译是肖宏辉大神对课程每个Lecture内容准确的翻译，搭配视频使用最佳。
+课程主页提供了学习课程所需的所有材料，在深入学习这门课之前，需要仔细浏览课程主页，搞清楚课程主页每个部分包含哪些内容。其中以下几个部分是你需要重点关注的。
+schedule：整个课程表，每节课的video、Preparation、Assignment在课程表里都有贴出 xv6-book：这本书是课程配套的，是课前读物 Reference：一些辅助资料，主要有unix介绍、qemu、RISC-V指令集 Labs：课程的核心部分，后面会详细介绍 接下来说说如何去学习这门课程，也是自己学习的过程，仅限经验参考。总的来说课程的学习分为两大块，课程内容和实验。
+课程内容：内容的学习推荐按照【Preparation】-&amp;gt;【视频】-&amp;gt;【翻译】的顺序。对于每个lecture在课程表里都有对应的预习内容，主要包括xv6-book对应章节的内容，以及部分源码的阅读。然后再去看相应的视频，就不会吃力。最后再去看一遍相应的课程内容翻译。可以说，课程内容的学习绝不是简单的一节课80分钟1.5倍速播放的学习😊(主要嫌弃语速慢)，前期的Preparation的学习也花费了我许多时间（不要害怕英文，我就六级没过的都不感觉有压力）。
+实验：实验切记独立完成，每个实验在课程主页都有相应的介绍，请务必认真阅读。重点每个实验的hints部分，这些hints就是为了引导你完成实验。后续我也会有实验部分的详解，仅供大家参考、交流，如果不自己独立完成实验，而是参考别人的代码，其实收获很小，很多部分自己还是一知半解的。希望大家独立完成。
+课程解析主要是对每个lecture的内容的解析，以及一些重点、难点的记录和分析。参考肖宏辉大神的翻译和自己的理解整理出来。
+Lec01 Introduction and Examples (Robert) Lec03 OS Oraganization and System Calls (Frans) Lec04 Page tables (Frans) Lec05 Calling conventions and stack frames RISC-V (TA) 实验实验部分是自己做实验的思考过程以及踩过的一些坑，详细分析了解决了每一个实验。
+Lab0 环境搭建 Lab1 Utilities Lab2 System calls Lab3 Page tables </description>
+    </item>
+    
+  </channel>
+</rss>

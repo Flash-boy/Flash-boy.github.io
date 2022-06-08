@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+
+
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; block-all-mixed-content; default-src 'self'; child-src 'self'; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net/; form-action 'self'; frame-src 'self'; img-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdn.jsdelivr.net/; script-src 'self' 'unsafe-inline' https://www.google-analytics.com https://cdn.jsdelivr.net/; prefetch-src 'self'; connect-src 'self' https://www.google-analytics.com;">
+
+
+
+
+<meta name="author" content="Yang Wei">
+<meta name="description" content="MIT6.S081课程学习文章记录了自己学习该门课程的心得，以及一些踩过的坑。同时也是自己第一次写博客的方式进行输出，希望自己以后可以坚持输出。主要内容有以下几部分。
+课程简介 如何学习 课程解析 实验 课程简介MIT6.S081是一门介绍操作系统的课程，课程主要由Frans Kaashoek &amp; Robert Morris两位教授来进行授课。课程是通过讲解两位教授开发的用于教学的类unix的迷你操作系统xv6，主要是为了理解操作系统内核的工作原理，因此适合想要深度学习和理解操作系统的同学。虽然是一门面向本科生的课程，但我觉得还是有一定难度，如果想要独立完成整个课程包括实验部分，我建议不要将这门课程作为操作系统学习的第一门课程，建议先学习 CSAPP，然后再学习这门课程。主要原因有：
+这门课程需要有比较好的C语言基础，debug基础 CSAPP中的linux基础，汇编，函数调用，页表等知识有助于本门课的理解 个人经验，我其实学了两遍这个课程，第一次直接学习本课程（学了一小部分就放弃了），第二次先完成了CSAPP课程的学习，然后完成了该课程的学习。相信我，有了CSAPP的课程铺垫，大部分实验你都能独立解决，更能游刃有余。 如何学习我觉得这门课程的重点是实验，如果你能够独立完成实验，说明你对相应的内容是有足够的了解的，因此，切记、一定、保证独立完成实验，宝宝们一定要独立完成，😄。
+学习过程中我遇到比较好的资源
+视频 翻译 课程主页 翻译是肖宏辉大神对课程每个Lecture内容准确的翻译，搭配视频使用最佳。
+课程主页提供了学习课程所需的所有材料，在深入学习这门课之前，需要仔细浏览课程主页，搞清楚课程主页每个部分包含哪些内容。其中以下几个部分是你需要重点关注的。
+schedule：整个课程表，每节课的video、Preparation、Assignment在课程表里都有贴出 xv6-book：这本书是课程配套的，是课前读物 Reference：一些辅助资料，主要有unix介绍、qemu、RISC-V指令集 Labs：课程的核心部分，后面会详细介绍 接下来说说如何去学习这门课程，也是自己学习的过程，仅限经验参考。总的来说课程的学习分为两大块，课程内容和实验。
+课程内容：内容的学习推荐按照【Preparation】-&gt;【视频】-&gt;【翻译】的顺序。对于每个lecture在课程表里都有对应的预习内容，主要包括xv6-book对应章节的内容，以及部分源码的阅读。然后再去看相应的视频，就不会吃力。最后再去看一遍相应的课程内容翻译。可以说，课程内容的学习绝不是简单的一节课80分钟1.5倍速播放的学习😊(主要嫌弃语速慢)，前期的Preparation的学习也花费了我许多时间（不要害怕英文，我就六级没过的都不感觉有压力）。
+实验：实验切记独立完成，每个实验在课程主页都有相应的介绍，请务必认真阅读。重点每个实验的hints部分，这些hints就是为了引导你完成实验。后续我也会有实验部分的详解，仅供大家参考、交流，如果不自己独立完成实验，而是参考别人的代码，其实收获很小，很多部分自己还是一知半解的。希望大家独立完成。
+课程解析主要是对每个lecture的内容的解析，以及一些重点、难点的记录和分析。参考肖宏辉大神的翻译和自己的理解整理出来。
+Lec01 Introduction and Examples (Robert) Lec03 OS Oraganization and System Calls (Frans) Lec04 Page tables (Frans) Lec05 Calling conventions and stack frames RISC-V (TA) 实验实验部分是自己做实验的思考过程以及踩过的一些坑，详细分析了解决了每一个实验。
+Lab0 环境搭建 Lab1 Utilities Lab2 System calls Lab3 Page tables ">
+<meta name="keywords" content="blog,developer,personal">
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="MIT6.S081 课程学习"/>
+<meta name="twitter:description" content="Yang Wei&#39;s personal website"/>
+
+<meta property="og:title" content="MIT6.S081 课程学习" />
+<meta property="og:description" content="Yang Wei&#39;s personal website" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://flash-boy.github.io/posts/6.s081/" />
+
+
+
+
+  <title>Yang Wei</title>
+
+  
+  <link rel="canonical" href="https://flash-boy.github.io/posts/6.s081/">
+  
+
+  <link rel="preload" href="../../fonts/forkawesome-webfont.woff2?v=1.2.0" as="font" type="font/woff2" crossorigin>
+
+
+  
+  
+  <link rel="stylesheet" href="../../css/coder.min.6b1a4fbc48955b72aea7913e43fabeb45e8bc120da5aa41b598dd33adcac4b59.css" integrity="sha256-axpPvEiVW3Kup5E&#43;Q/q&#43;tF6LwSDaWqQbWY3TOtysS1k=" crossorigin="anonymous" media="screen" />
+
+
+
+
+
+  
+  
+    
+    
+    <link rel="stylesheet" href="../../css/coder-dark.min.39e41a7f16bdf8cb16e43cae7d714fa1016f1d2d2898a5b3f27f42c9979204e2.css" integrity="sha256-OeQafxa9&#43;MsW5DyufXFPoQFvHS0omKWz8n9CyZeSBOI=" crossorigin="anonymous" media="screen" />
+  
+
+
+
+   
+
+
+
+
+  <link rel="icon" type="image/png" href="../../images/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="../../images/favicon-16x16.png" sizes="16x16">
+
+<link rel="apple-touch-icon" href="../../images/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../images/apple-touch-icon.png">
+
+<link rel="manifest" href="../../site.webmanifest">
+<link rel="mask-icon" href="../../images/safari-pinned-tab.svg" color="#5bbad5">
+
+
+  
+
+  <meta name="generator" content="Hugo 0.100.1" />
+
+
+  
+
+</head>
+
+
+
+
+
+
+
+<body class="preload-transitions colorscheme-auto">
+  
+<div class="float-container">
+    <a id="dark-mode-toggle" class="colorscheme-toggle">
+        <i class="fa fa-adjust fa-fw" aria-hidden="true"></i>
+    </a>
+</div>
+
+
+  <main class="wrapper">
+    <nav class="navigation">
+  <section class="container">
+    <a class="navigation-title" href="../../">
+      Yang Wei
+    </a>
+    
+      <input type="checkbox" id="menu-toggle" />
+      <label class="menu-button float-right" for="menu-toggle">
+        <i class="fa fa-bars fa-fw" aria-hidden="true"></i>
+      </label>
+      <ul class="navigation-list">
+        
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../about/">About</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../posts/">Blog</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../projects/">Projects</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../contact/">Contact me</a>
+            </li>
+          
+        
+        
+      </ul>
+    
+  </section>
+</nav>
+
+
+    <div class="content">
+      
+  <section class="container list">
+    <h1 class="title">
+      <a class="title-link" href="https://flash-boy.github.io/posts/6.s081/">
+        MIT6.S081 课程学习
+      </a>
+    </h1>
+    <h1 id="mit6s081课程学习">
+  MIT6.S081课程学习
+  <a class="heading-link" href="#mit6s081%e8%af%be%e7%a8%8b%e5%ad%a6%e4%b9%a0">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h1>
+<p>文章记录了自己学习该门课程的心得，以及一些踩过的坑。同时也是自己第一次写博客的方式进行输出，希望自己以后可以坚持输出。主要内容有以下几部分。</p>
+<ul>
+<li><a href="#%E8%AF%BE%E7%A8%8B%E7%AE%80%E4%BB%8B">课程简介</a></li>
+<li><a href="#%E5%A6%82%E4%BD%95%E5%AD%A6%E4%B9%A0">如何学习</a></li>
+<li><a href="#%E8%AF%BE%E7%A8%8B%E8%A7%A3%E6%9E%90">课程解析</a></li>
+<li><a href="#%E5%AE%9E%E9%AA%8C">实验</a></li>
+</ul>
+<h2 id="课程简介">
+  课程简介
+  <a class="heading-link" href="#%e8%af%be%e7%a8%8b%e7%ae%80%e4%bb%8b">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<p>MIT6.S081是一门介绍操作系统的课程，课程主要由<a href="https://pdos.csail.mit.edu/~kaashoek/">Frans Kaashoek</a> &amp; <a href="https://pdos.csail.mit.edu/~rtm/">Robert Morris</a>两位教授来进行授课。课程是通过讲解两位教授开发的用于教学的类unix的迷你操作系统xv6，主要是为了理解操作系统内核的工作原理，因此适合想要深度学习和理解操作系统的同学。虽然是一门面向本科生的课程，但我觉得还是有一定难度，如果想要独立完成整个课程包括实验部分，我建议不要将这门课程作为操作系统学习的第一门课程，建议先学习 <a href="https://www.cs.cmu.edu/~213/">CSAPP</a>，然后再学习这门课程。主要原因有：</p>
+<ol>
+<li>这门课程需要有比较好的C语言基础，debug基础</li>
+<li>CSAPP中的linux基础，汇编，函数调用，页表等知识有助于本门课的理解</li>
+<li>个人经验，我其实学了两遍这个课程，第一次直接学习本课程（学了一小部分就放弃了），第二次先完成了CSAPP课程的学习，然后完成了该课程的学习。相信我，有了CSAPP的课程铺垫，大部分实验你都能独立解决，更能游刃有余。</li>
+</ol>
+<h2 id="如何学习">
+  如何学习
+  <a class="heading-link" href="#%e5%a6%82%e4%bd%95%e5%ad%a6%e4%b9%a0">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<p>我觉得这门课程的重点是实验，如果你能够<strong>独立</strong>完成实验，说明你对相应的内容是有足够的了解的，因此，切记、一定、保证<strong>独立</strong>完成实验，宝宝们一定要<strong>独立</strong>完成，😄。</p>
+<p>学习过程中我遇到比较好的资源</p>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://www.bilibili.com/video/BV19k4y1C7kA?spm_id_from=333.1007.top_right_bar_window_custom_collection.content.click">视频</a></li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://mit-public-courses-cn-translatio.gitbook.io/mit6-s081/">翻译</a></li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://pdos.csail.mit.edu/6.828/2020/schedule.html">课程主页</a></li>
+</ul>
+<p>翻译是<a href="https://www.zhihu.com/people/xiao-hong-hui-15">肖宏辉大神</a>对课程每个Lecture内容准确的翻译，搭配视频使用最佳。</p>
+<p>课程主页提供了学习课程所需的所有材料，在深入学习这门课之前，需要仔细浏览课程主页，搞清楚课程主页每个部分包含哪些内容。其中以下几个部分是你需要重点关注的。</p>
+<ul>
+<li><a href="https://pdos.csail.mit.edu/6.828/2020/schedule.html">schedule</a>：整个课程表，每节课的<strong>video</strong>、<strong>Preparation</strong>、<strong>Assignment</strong>在课程表里都有贴出</li>
+<li><a href="https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf">xv6-book</a>：这本书是课程配套的，是课前读物</li>
+<li><a href="https://pdos.csail.mit.edu/6.828/2020/reference.html">Reference</a>：一些辅助资料，主要有<strong>unix介绍</strong>、<strong>qemu</strong>、<strong>RISC-V指令集</strong></li>
+<li><a href="https://pdos.csail.mit.edu/6.828/2020/labs/guidance.html">Labs</a>：课程的核心部分，后面会详细介绍</li>
+</ul>
+<p>接下来说说如何去学习这门课程，也是自己学习的过程，仅限经验参考。总的来说课程的学习分为两大块，课程内容和实验。</p>
+<p><strong>课程内容</strong>：内容的学习推荐按照【Preparation】-&gt;【视频】-&gt;【翻译】的顺序。对于每个lecture在课程表里都有对应的预习内容，主要包括<a href="https://pdos.csail.mit.edu/6.828/2020/labs/guidance.html">xv6-book</a>对应章节的内容，以及部分源码的阅读。然后再去看相应的视频，就不会吃力。最后再去看一遍相应的课程内容翻译。可以说，课程内容的学习绝不是简单的一节课80分钟1.5倍速播放的学习😊(主要嫌弃语速慢)，前期的Preparation的学习也花费了我许多时间（不要害怕英文，我就六级没过的都不感觉有压力）。<br>
+<strong>实验</strong>：实验切记独立完成，每个实验在课程主页都有相应的介绍，请务必认真阅读。重点每个实验的hints部分，这些hints就是为了引导你完成实验。后续我也会有实验部分的详解，仅供大家参考、交流，如果不自己独立完成实验，而是参考别人的代码，其实收获很小，很多部分自己还是一知半解的。希望大家独立完成。</p>
+<h2 id="课程解析">
+  课程解析
+  <a class="heading-link" href="#%e8%af%be%e7%a8%8b%e8%a7%a3%e6%9e%90">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<p>主要是对每个lecture的内容的解析，以及一些重点、难点的记录和分析。参考<a href="https://mit-public-courses-cn-translatio.gitbook.io/mit6-s081/">肖宏辉大神的翻译</a>和自己的理解整理出来。</p>
+<blockquote>
+<ul>
+<li><a href="./lectures/lec01">Lec01 Introduction and Examples (Robert)</a></li>
+<li><a href="./lectures/lec03">Lec03 OS Oraganization and System Calls (Frans)</a></li>
+<li><a href="./lectures/lec04.md">Lec04 Page tables (Frans)</a></li>
+<li><a href="./lectures/lec05">Lec05 Calling conventions and stack frames RISC-V (TA)</a></li>
+</ul>
+</blockquote>
+<h2 id="实验">
+  实验
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<p>实验部分是自己做实验的思考过程以及踩过的一些坑，详细分析了解决了每一个实验。</p>
+<blockquote>
+<ul>
+<li><a href="./labs/lab0/">Lab0 环境搭建</a></li>
+<li><a href="./labs/lab1/">Lab1 Utilities</a></li>
+<li><a href="./labs/lab2/">Lab2 System calls</a></li>
+<li><a href="./labs/lab3/">Lab3 Page tables</a></li>
+</ul>
+</blockquote>
+
+    <ul></ul>
+
+    
+
+
+
+
+
+
+  </section>
+
+    </div>
+
+    <footer class="footer">
+  <section class="container">
+    ©
+    
+      2019 -
+    
+    2022
+     Yang Wei 
+    ·
+    
+    Powered by <a href="https://gohugo.io/">Hugo</a> & <a href="https://github.com/luizdepra/hugo-coder/">Coder</a>.
+    
+  </section>
+</footer>
+
+  </main>
+
+  
+  
+  <script src="../../js/coder.min.f411a1043e37c7c14dfb03f4d94d60d9ee69cfa413b16d0fd4f28695babb82bb.js" integrity="sha256-9BGhBD43x8FN&#43;wP02U1g2e5pz6QTsW0P1PKGlbq7grs="></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</body>
+
+</html>

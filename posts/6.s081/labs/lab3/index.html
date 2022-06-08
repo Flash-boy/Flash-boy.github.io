@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+
+
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; block-all-mixed-content; default-src 'self'; child-src 'self'; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net/; form-action 'self'; frame-src 'self'; img-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdn.jsdelivr.net/; script-src 'self' 'unsafe-inline' https://www.google-analytics.com https://cdn.jsdelivr.net/; prefetch-src 'self'; connect-src 'self' https://www.google-analytics.com;">
+
+
+
+
+<meta name="author" content="Yang Wei">
+<meta name="description" content="Page tables实验目标本实验主要了解xv6虚拟内存的底层实现，xv6能够运行的机制是内核采用了恒等映射，即把内核的虚拟地址和物理地址在内核页表建立的是恒等映射，同时xv6采用的是三级页表。这个实验主要是弄懂xv6的内核布局以及页表机制，主要的源代码是kernel/kalloc.c, kernel/vm.c, kernel/memlayout.h。
+实验详解Print a page table (easy)主要是实现一个pagetable的层级打印，这个比较简单，只要弄得xv6的pagetable三级页表结构，配合kernel/riscv.h里提供的页表宏很容易得到答案
+// kernel/vm.c // helper funtion for vmprint() static void vmprinthelper(pagetable_t pagetable, int level){ static char* prefix[] = {&#34;..&#34;, &#34;.. ..&#34;, &#34;.. .. ..&#34;}; if(level &gt; 2) return; for(int i = 0; i &lt; 512; i&#43;&#43;){ pte_t pte = pagetable[i]; if(pte &amp; PTE_V){ // this PTE points to a lower-level page table. uint64 child = PTE2PA(pte); printf(&#34;%s%d: pte %p pa %p\n&#34;, prefix[level], i, pte, child); vmprinthelper((pagetable_t)child, level &#43; 1); } } } // printf the valid pte of pagetable // pagetable: the physical pagetable address need to print void vmprint(pagetable_t pagetable){ printf(&#34;page table %p\n&#34;, pagetable); vmprinthelper(pagetable, 0); } 效果如图 A kernel page table per process (hard)原先版本的xv6有一个全局的内核页表，采用恒等映射，同时每个进程在用户空间有一个页表。因此，在进程由用户态和内核态切换的过程中，需要切换页表，这会导致cpu的L1Cache失效，降低效率。同时也会造成如果想要将用户态的数据复制到内核态，首先需要主动遍历用户页表得到数据的物理地址，然后因为在内核物理地址和虚拟地址是恒等映射，在利用数据的物理地址进行复制。如果将内核页表和用户页表 合为一个页表，但不同页表项具有不同的权限，这样不仅能解决L1Cache失效的问题，同时也能将用户态数据复制到内核态不需要通过一层转换间接复制来完成数据的复制。">
+<meta name="keywords" content="blog,developer,personal">
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Lab3 Page tables"/>
+<meta name="twitter:description" content="Page tables实验目标本实验主要了解xv6虚拟内存的底层实现，xv6能够运行的机制是内核采用了恒等映射，即把内核的虚拟地址和物理地址在内核页表建立的是恒等映射，同时xv6采用的是三级页表。这个实验主要是弄懂xv6的内核布局以及页表机制，主要的源代码是kernel/kalloc.c, kernel/vm.c, kernel/memlayout.h。
+实验详解Print a page table (easy)主要是实现一个pagetable的层级打印，这个比较简单，只要弄得xv6的pagetable三级页表结构，配合kernel/riscv.h里提供的页表宏很容易得到答案
+// kernel/vm.c // helper funtion for vmprint() static void vmprinthelper(pagetable_t pagetable, int level){ static char* prefix[] = {&#34;..&#34;, &#34;.. ..&#34;, &#34;.. .. ..&#34;}; if(level &gt; 2) return; for(int i = 0; i &lt; 512; i&#43;&#43;){ pte_t pte = pagetable[i]; if(pte &amp; PTE_V){ // this PTE points to a lower-level page table. uint64 child = PTE2PA(pte); printf(&#34;%s%d: pte %p pa %p\n&#34;, prefix[level], i, pte, child); vmprinthelper((pagetable_t)child, level &#43; 1); } } } // printf the valid pte of pagetable // pagetable: the physical pagetable address need to print void vmprint(pagetable_t pagetable){ printf(&#34;page table %p\n&#34;, pagetable); vmprinthelper(pagetable, 0); } 效果如图 A kernel page table per process (hard)原先版本的xv6有一个全局的内核页表，采用恒等映射，同时每个进程在用户空间有一个页表。因此，在进程由用户态和内核态切换的过程中，需要切换页表，这会导致cpu的L1Cache失效，降低效率。同时也会造成如果想要将用户态的数据复制到内核态，首先需要主动遍历用户页表得到数据的物理地址，然后因为在内核物理地址和虚拟地址是恒等映射，在利用数据的物理地址进行复制。如果将内核页表和用户页表 合为一个页表，但不同页表项具有不同的权限，这样不仅能解决L1Cache失效的问题，同时也能将用户态数据复制到内核态不需要通过一层转换间接复制来完成数据的复制。"/>
+
+<meta property="og:title" content="Lab3 Page tables" />
+<meta property="og:description" content="Page tables实验目标本实验主要了解xv6虚拟内存的底层实现，xv6能够运行的机制是内核采用了恒等映射，即把内核的虚拟地址和物理地址在内核页表建立的是恒等映射，同时xv6采用的是三级页表。这个实验主要是弄懂xv6的内核布局以及页表机制，主要的源代码是kernel/kalloc.c, kernel/vm.c, kernel/memlayout.h。
+实验详解Print a page table (easy)主要是实现一个pagetable的层级打印，这个比较简单，只要弄得xv6的pagetable三级页表结构，配合kernel/riscv.h里提供的页表宏很容易得到答案
+// kernel/vm.c // helper funtion for vmprint() static void vmprinthelper(pagetable_t pagetable, int level){ static char* prefix[] = {&#34;..&#34;, &#34;.. ..&#34;, &#34;.. .. ..&#34;}; if(level &gt; 2) return; for(int i = 0; i &lt; 512; i&#43;&#43;){ pte_t pte = pagetable[i]; if(pte &amp; PTE_V){ // this PTE points to a lower-level page table. uint64 child = PTE2PA(pte); printf(&#34;%s%d: pte %p pa %p\n&#34;, prefix[level], i, pte, child); vmprinthelper((pagetable_t)child, level &#43; 1); } } } // printf the valid pte of pagetable // pagetable: the physical pagetable address need to print void vmprint(pagetable_t pagetable){ printf(&#34;page table %p\n&#34;, pagetable); vmprinthelper(pagetable, 0); } 效果如图 A kernel page table per process (hard)原先版本的xv6有一个全局的内核页表，采用恒等映射，同时每个进程在用户空间有一个页表。因此，在进程由用户态和内核态切换的过程中，需要切换页表，这会导致cpu的L1Cache失效，降低效率。同时也会造成如果想要将用户态的数据复制到内核态，首先需要主动遍历用户页表得到数据的物理地址，然后因为在内核物理地址和虚拟地址是恒等映射，在利用数据的物理地址进行复制。如果将内核页表和用户页表 合为一个页表，但不同页表项具有不同的权限，这样不仅能解决L1Cache失效的问题，同时也能将用户态数据复制到内核态不需要通过一层转换间接复制来完成数据的复制。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://flash-boy.github.io/posts/6.s081/labs/lab3/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2022-06-05T00:00:00+00:00" />
+<meta property="article:modified_time" content="2022-06-05T00:00:00+00:00" />
+
+
+
+
+  <title>Yang Wei</title>
+
+  
+  <link rel="canonical" href="https://flash-boy.github.io/posts/6.s081/labs/lab3/">
+  
+
+  <link rel="preload" href="../../../../fonts/forkawesome-webfont.woff2?v=1.2.0" as="font" type="font/woff2" crossorigin>
+
+
+  
+  
+  <link rel="stylesheet" href="../../../../css/coder.min.6b1a4fbc48955b72aea7913e43fabeb45e8bc120da5aa41b598dd33adcac4b59.css" integrity="sha256-axpPvEiVW3Kup5E&#43;Q/q&#43;tF6LwSDaWqQbWY3TOtysS1k=" crossorigin="anonymous" media="screen" />
+
+
+
+
+
+  
+  
+    
+    
+    <link rel="stylesheet" href="../../../../css/coder-dark.min.39e41a7f16bdf8cb16e43cae7d714fa1016f1d2d2898a5b3f27f42c9979204e2.css" integrity="sha256-OeQafxa9&#43;MsW5DyufXFPoQFvHS0omKWz8n9CyZeSBOI=" crossorigin="anonymous" media="screen" />
+  
+
+
+
+   
+
+
+
+
+  <link rel="icon" type="image/png" href="../../../../images/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="../../../../images/favicon-16x16.png" sizes="16x16">
+
+<link rel="apple-touch-icon" href="../../../../images/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../../images/apple-touch-icon.png">
+
+<link rel="manifest" href="../../../../site.webmanifest">
+<link rel="mask-icon" href="../../../../images/safari-pinned-tab.svg" color="#5bbad5">
+
+
+  
+
+  <meta name="generator" content="Hugo 0.100.1" />
+
+
+  
+
+</head>
+
+
+
+
+
+
+
+<body class="preload-transitions colorscheme-auto">
+  
+<div class="float-container">
+    <a id="dark-mode-toggle" class="colorscheme-toggle">
+        <i class="fa fa-adjust fa-fw" aria-hidden="true"></i>
+    </a>
+</div>
+
+
+  <main class="wrapper">
+    <nav class="navigation">
+  <section class="container">
+    <a class="navigation-title" href="../../../../">
+      Yang Wei
+    </a>
+    
+      <input type="checkbox" id="menu-toggle" />
+      <label class="menu-button float-right" for="menu-toggle">
+        <i class="fa fa-bars fa-fw" aria-hidden="true"></i>
+      </label>
+      <ul class="navigation-list">
+        
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../about/">About</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../posts/">Blog</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../projects/">Projects</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../contact/">Contact me</a>
+            </li>
+          
+        
+        
+      </ul>
+    
+  </section>
+</nav>
+
+
+    <div class="content">
+      
+  <section class="container post">
+    <article>
+      <header>
+        <div class="post-title">
+          <h1 class="title">
+            <a class="title-link" href="https://flash-boy.github.io/posts/6.s081/labs/lab3/">
+              Lab3 Page tables
+            </a>
+          </h1>
+        </div>
+        <div class="post-meta">
+          <div class="date">
+            <span class="posted-on">
+              <i class="fa fa-calendar" aria-hidden="true"></i>
+              <time datetime="2022-06-05T00:00:00Z">
+                June 5, 2022
+              </time>
+            </span>
+            <span class="reading-time">
+              <i class="fa fa-clock-o" aria-hidden="true"></i>
+              5-minute read
+            </span>
+          </div>
+          
+          <div class="categories">
+  <i class="fa fa-folder" aria-hidden="true"></i>
+    <a href="../../../../categories/operator-system/">Operator System</a></div>
+
+          <div class="tags">
+  <i class="fa fa-tag" aria-hidden="true"></i>
+    <span class="tag">
+      <a href="../../../../tags/c/">C</a>
+    </span>
+      <span class="separator">•</span>
+    <span class="tag">
+      <a href="../../../../tags/course/">Course</a>
+    </span>
+      <span class="separator">•</span>
+    <span class="tag">
+      <a href="../../../../tags/mit/">MIT</a>
+    </span></div>
+
+        </div>
+      </header>
+
+      <div>
+        
+        <h1 id="page-tableshttpspdoscsailmitedu68282020labspgtblhtml">
+  <a href="https://pdos.csail.mit.edu/6.828/2020/labs/pgtbl.html">Page tables</a>
+  <a class="heading-link" href="#page-tableshttpspdoscsailmitedu68282020labspgtblhtml">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h1>
+<h2 id="实验目标">
+  实验目标
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e7%9b%ae%e6%a0%87">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<p>本实验主要了解xv6虚拟内存的底层实现，xv6能够运行的机制是内核采用了恒等映射，即把内核的虚拟地址和物理地址在内核页表建立的是恒等映射，同时xv6采用的是三级页表。这个实验主要是弄懂xv6的内核布局以及页表机制，主要的源代码是kernel/kalloc.c, kernel/vm.c, kernel/memlayout.h。</p>
+<h2 id="实验详解">
+  实验详解
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e8%af%a6%e8%a7%a3">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<h3 id="print-a-page-table-easy">
+  Print a page table (easy)
+  <a class="heading-link" href="#print-a-page-table-easy">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>主要是实现一个pagetable的层级打印，这个比较简单，只要弄得xv6的pagetable三级页表结构，配合kernel/riscv.h里提供的页表宏很容易得到答案</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/vm.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// helper funtion for vmprint()
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="font-weight:bold">static</span> <span style="">void</span> vmprinthelper(pagetable_t pagetable, <span style="">int</span> level){
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">static</span> <span style="">char</span>* prefix[] = {<span style="font-style:italic">&#34;..&#34;</span>, <span style="font-style:italic">&#34;.. ..&#34;</span>, <span style="font-style:italic">&#34;.. .. ..&#34;</span>};
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(level &gt; 2) <span style="font-weight:bold">return</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">for</span>(<span style="">int</span> i = 0; i &lt; 512; i++){
+</span></span><span style="display:flex;"><span>        pte_t pte = pagetable[i];
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">if</span>(pte &amp; PTE_V){
+</span></span><span style="display:flex;"><span>            <span style="font-style:italic">// this PTE points to a lower-level page table.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>            uint64 child = PTE2PA(pte);
+</span></span><span style="display:flex;"><span>            printf(<span style="font-style:italic">&#34;%s%d: pte %p pa %p</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, prefix[level], i, pte, child);
+</span></span><span style="display:flex;"><span>            vmprinthelper((pagetable_t)child, level + 1);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// printf the valid pte of pagetable 
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">// pagetable: the physical pagetable address need to print
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">void</span> vmprint(pagetable_t pagetable){
+</span></span><span style="display:flex;"><span>    printf(<span style="font-style:italic">&#34;page table %p</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, pagetable);
+</span></span><span style="display:flex;"><span>    vmprinthelper(pagetable, 0);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>效果如图  <br>
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab3-1.png" alt=""></p>
+<h3 id="a-kernel-page-table-per-process-hard">
+  A kernel page table per process (hard)
+  <a class="heading-link" href="#a-kernel-page-table-per-process-hard">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>原先版本的xv6有一个全局的内核页表，采用恒等映射，同时每个进程在用户空间有一个页表。因此，在进程由用户态和内核态切换的过程中，需要切换页表，这会导致cpu的L1Cache失效，降低效率。同时也会造成如果想要将用户态的数据复制到内核态，首先需要主动遍历用户页表得到数据的物理地址，然后因为在内核物理地址和虚拟地址是恒等映射，在利用数据的物理地址进行复制。如果将内核页表和用户页表
+合为一个页表，但不同页表项具有不同的权限，这样不仅能解决L1Cache失效的问题，同时也能将用户态数据复制到内核态不需要通过一层转换间接复制来完成数据的复制。</p>
+<p>本实验是为每个进程构造一个内核页表的副本，核心就是参考内核页表的生成，构造一个类似的页表保存在struct proc中。</p>
+<p>首先在struct proc中新增一个字段记录内核页表的副本</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/proc.h
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="font-weight:bold">struct</span> proc{
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    pagetable_t kernel_pagetable;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>kvminit()函数是对内核页表的初始化，仿照该方法定义一个kvmcreat()函数来建立一个内核页表的映射</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// create pagetable of kernel
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="font-weight:bold">static</span> <span style="">void</span> create_kvmmap(pagetable_t pagetable, uint64 va, uint64 pa, uint64 sz, <span style="">int</span> perm){
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(mappages(pagetable, va, sz, pa, perm) != 0)
+</span></span><span style="display:flex;"><span>        panic(<span style="font-style:italic">&#34;create_kvmmap&#34;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// 方便后续初始化struct proc中的kernel_pagetable 
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>pagetable_t kvmcreat(){
+</span></span><span style="display:flex;"><span>  pagetable_t pagetable = (pagetable_t) kalloc();
+</span></span><span style="display:flex;"><span>  memset(pagetable, 0, PGSIZE);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// uart registers
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  create_kvmmap(pagetable, UART0, UART0, PGSIZE, PTE_R | PTE_W);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// virtio mmio disk interface
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  create_kvmmap(pagetable, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// CLINT
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  create_kvmmap(pagetable, CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// PLIC
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  create_kvmmap(pagetable, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// map kernel text executable and read-only.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  create_kvmmap(pagetable, KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// map kernel data and the physical RAM we&#39;ll make use of.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  create_kvmmap(pagetable, (uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// map the trampoline for trap entry/exit to
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-style:italic">// the highest virtual address in the kernel.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  create_kvmmap(pagetable, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">return</span> pagetable;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="font-style:italic">/*
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"> * create a direct-map page table for the kernel.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"> */</span>
+</span></span><span style="display:flex;"><span><span style="">void</span> 
+</span></span><span style="display:flex;"><span>kvminit()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  kernel_pagetable = kvmcreat();
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">//create_kvmmap(kernel_pagetable, CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>}
+</span></span></code></pre></div><p>全局内核页表在procinit函数中还为每个进程映射了内核栈，这里因为采用的是struct proc中的内核页表，因此需要将这部分工作
+转移到allocproc函数中。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/proc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="">void</span>
+</span></span><span style="display:flex;"><span>procinit(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">struct</span> proc *p;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  initlock(&amp;pid_lock, <span style="font-style:italic">&#34;nextpid&#34;</span>);
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">for</span>(p = proc; p &lt; &amp;proc[NPROC]; p++) {
+</span></span><span style="display:flex;"><span>      initlock(&amp;p-&gt;lock, <span style="font-style:italic">&#34;proc&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="font-style:italic">// Allocate a page for the process&#39;s kernel stack.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>      <span style="font-style:italic">// Map it high in memory, followed by an invalid
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>      <span style="font-style:italic">// guard page.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>      <span style="font-style:italic">// 注释掉这部分代码，在allocproc中实现
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>      <span style="font-style:italic">/* do this in allocproc()
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">      char *pa = kalloc();
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">      if(pa == 0)
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">        panic(&#34;kalloc&#34;);
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">      uint64 va = KSTACK((int) (p - proc));
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">      p-&gt;kstack = va;
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">      */</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  kvminithart();
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">static</span> <span style="font-weight:bold">struct</span> proc*
+</span></span><span style="display:flex;"><span>allocproc(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span> <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>found:
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// Set struct proc field -&gt; kernel_pagetable;
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-style:italic">// 创建内核页表
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  p-&gt;kernel_pagetable = kvmcreat();
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// 映射进程的内核栈
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="">char</span> *pa = kalloc();
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">if</span>(pa == 0)
+</span></span><span style="display:flex;"><span>      panic(<span style="font-style:italic">&#34;kalloc&#34;</span>);
+</span></span><span style="display:flex;"><span>  uint64 va = TRAMPOLINE - 2 * PGSIZE;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">if</span>(mappages(p-&gt;kernel_pagetable, va, PGSIZE, (uint64)pa, PTE_R | PTE_W) != 0)
+</span></span><span style="display:flex;"><span>      panic(<span style="font-style:italic">&#34;allocproc&#34;</span>);
+</span></span><span style="display:flex;"><span>  p-&gt;kstack = va;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-weight:bold">return</span> p;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>完成以上部分就在struct proc中创建了一个和原先版本一样的内核页表副本。接着就是在scheduler函数中切换页表时使用
+struct proc中的内核页表</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="">void</span>
+</span></span><span style="display:flex;"><span>scheduler(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">struct</span> proc *p;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">struct</span> cpu *c = mycpu();
+</span></span><span style="display:flex;"><span>  c-&gt;proc = 0;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">for</span>(;;){
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// Avoid deadlock by ensuring that devices can interrupt.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    intr_on();
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="">int</span> found = 0;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">for</span>(p = proc; p &lt; &amp;proc[NPROC]; p++) {
+</span></span><span style="display:flex;"><span>      acquire(&amp;p-&gt;lock);
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">if</span>(p-&gt;state == RUNNABLE) {
+</span></span><span style="display:flex;"><span>        <span style="font-style:italic">// Switch to chosen process.  It is the process&#39;s job
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        <span style="font-style:italic">// to release its lock and then reacquire it
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        <span style="font-style:italic">// before jumping back to us.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        p-&gt;state = RUNNING;
+</span></span><span style="display:flex;"><span>        c-&gt;proc = p;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="font-style:italic">// 在运行进程过程中使用进程中的内核页表
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        w_satp(MAKE_SATP(p-&gt;kernel_pagetable));
+</span></span><span style="display:flex;"><span>        sfence_vma();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        swtch(&amp;c-&gt;context, &amp;p-&gt;context);
+</span></span><span style="display:flex;"><span>        kvminithart(); <span style="font-style:italic">// 切换回内核态使用全局内核页表
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        
+</span></span><span style="display:flex;"><span>        <span style="font-style:italic">// Process is done running for now.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        <span style="font-style:italic">// It should have changed its p-&gt;state before coming back.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        c-&gt;proc = 0;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        found = 1;
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      release(&amp;p-&gt;lock);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span><span style="">#if !defined (LAB_FS)
+</span></span></span><span style="display:flex;"><span><span style=""></span>    <span style="font-weight:bold">if</span>(found == 0) {
+</span></span><span style="display:flex;"><span>      intr_on();
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">asm</span> <span style="font-weight:bold">volatile</span>(<span style="font-style:italic">&#34;wfi&#34;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span><span style="">#else
+</span></span></span><span style="display:flex;"><span><span style=""></span>    ;
+</span></span><span style="display:flex;"><span><span style="">#endif
+</span></span></span><span style="display:flex;"><span><span style=""></span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>最后释放进程时不要忘记释放对应struct proc中的内核页表</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/proc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">static</span> <span style="">void</span>
+</span></span><span style="display:flex;"><span>freeproc(<span style="font-weight:bold">struct</span> proc *p)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-weight:bold">if</span>(p-&gt;kernel_pagetable){
+</span></span><span style="display:flex;"><span>    uint64 va = TRAMPOLINE - 2 * PGSIZE; 
+</span></span><span style="display:flex;"><span>    uvmunmap(p-&gt;kernel_pagetable, va, 1, 1);
+</span></span><span style="display:flex;"><span>    proc_freewalk(p-&gt;kernel_pagetable);
+</span></span><span style="display:flex;"><span>    p-&gt;kernel_pagetable = 0;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// kernel/vm.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">// 释放struct proc中的kernel_pagetable
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">void</span> proc_freewalk(pagetable_t pagetable)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// there are 2^9 = 512 PTEs in a page table.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-weight:bold">for</span>(<span style="">int</span> i = 0; i &lt; 512; i++){
+</span></span><span style="display:flex;"><span>    pte_t pte = pagetable[i];
+</span></span><span style="display:flex;"><span>    pagetable[i] = 0;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(pte &amp; PTE_V){
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">if</span>((pte &amp; (PTE_W | PTE_R | PTE_X)) == 0){
+</span></span><span style="display:flex;"><span>        uint64 child = PTE2PA(pte);
+</span></span><span style="display:flex;"><span>        proc_freewalk((pagetable_t)child);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  kfree((<span style="">void</span>*)pagetable);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>实验效果如图  <br>
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab3-2.png" alt=""></p>
+<h3 id="simplify-coypincopyinstr-hard">
+  Simplify coypin/copyinstr (hard)
+  <a class="heading-link" href="#simplify-coypincopyinstr-hard">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>本实验就是将用户进程映射到struct proc中的kernel_pagetable这，核心代码就是在任何时候用户空间映射改变的时候
+修改kernel_pagetable</p>
+<p>首先userinit是初始化进程，后续所有用户进程都是基于该进程的fork。需要在该进程的kernel_pagetable这创建映射</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/proc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic">// Set up first user process.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">void</span>
+</span></span><span style="display:flex;"><span>userinit(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">struct</span> proc *p;
+</span></span><span style="display:flex;"><span>  pte_t* pte, *kernelpte;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  p = allocproc();
+</span></span><span style="display:flex;"><span>  initproc = p;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// allocate one user page and copy init&#39;s instructions
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-style:italic">// and data into it.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  uvminit(p-&gt;pagetable, initcode, <span style="font-weight:bold">sizeof</span>(initcode));
+</span></span><span style="display:flex;"><span>  p-&gt;sz = PGSIZE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// 映射用户进程代码到kernel_pagetable
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  pte = walk(p-&gt;pagetable, 0, 0);
+</span></span><span style="display:flex;"><span>  kernelpte = walk(p-&gt;kernel_pagetable, 0, 1);
+</span></span><span style="display:flex;"><span>  *kernelpte = (*pte) &amp; ~PTE_U;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// prepare for the very first &#34;return&#34; from kernel to user.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  p-&gt;trapframe-&gt;epc = 0;      <span style="font-style:italic">// user program counter
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  p-&gt;trapframe-&gt;sp = PGSIZE;  <span style="font-style:italic">// user stack pointer
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span>  safestrcpy(p-&gt;name, <span style="font-style:italic">&#34;initcode&#34;</span>, <span style="font-weight:bold">sizeof</span>(p-&gt;name));
+</span></span><span style="display:flex;"><span>  p-&gt;cwd = namei(<span style="font-style:italic">&#34;/&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  p-&gt;state = RUNNABLE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  release(&amp;p-&gt;lock);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>接着对于修改了用户进程映射的函数都需要做类似的修改包括，fork, exec, sbrk。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// kernel/proc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">int</span>
+</span></span><span style="display:flex;"><span>fork(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// map user addr to proc kernel_pagetable; 
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-weight:bold">for</span>(<span style="">int</span> j = 0; j &lt; p-&gt;sz; j += PGSIZE){
+</span></span><span style="display:flex;"><span>      pte = walk(np-&gt;pagetable, j, 0);
+</span></span><span style="display:flex;"><span>      kernelpte = walk(np-&gt;kernel_pagetable, j, 1);
+</span></span><span style="display:flex;"><span>      *kernelpte = (*pte) &amp; ~PTE_U;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// kernel/exec.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">int</span>
+</span></span><span style="display:flex;"><span>exec(<span style="">char</span> *path, <span style="">char</span> **argv)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-style:italic">// Load program into memory.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-weight:bold">for</span>(i=0, off=elf.phoff; i&lt;elf.phnum; i++, off+=<span style="font-weight:bold">sizeof</span>(ph)){
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(readi(ip, 0, (uint64)&amp;ph, off, <span style="font-weight:bold">sizeof</span>(ph)) != <span style="font-weight:bold">sizeof</span>(ph))
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">goto</span> bad;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(ph.type != ELF_PROG_LOAD)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">continue</span>;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(ph.memsz &lt; ph.filesz)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">goto</span> bad;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(ph.vaddr + ph.memsz &lt; ph.vaddr)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">goto</span> bad;
+</span></span><span style="display:flex;"><span>    uint64 sz1;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz)) == 0)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">goto</span> bad;
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// 用户进程空间查过PLIC直接按出错处理
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="font-weight:bold">if</span>(sz1 &gt;= PLIC)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">goto</span> bad;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    sz = sz1;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(ph.vaddr % PGSIZE != 0)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">goto</span> bad;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) &lt; 0)
+</span></span><span style="display:flex;"><span>      <span style="font-weight:bold">goto</span> bad;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// 取消旧映射，创建新映射
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  uvmunmap(p-&gt;kernel_pagetable, 0, PGROUNDUP(oldsz) / PGSIZE, 0);
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">for</span>(<span style="">int</span> j = 0; j &lt; sz; ++j){
+</span></span><span style="display:flex;"><span>      pte = walk(pagetable, j, 0);
+</span></span><span style="display:flex;"><span>      kernelpte = walk(p-&gt;kernel_pagetable, j, 1);
+</span></span><span style="display:flex;"><span>      *kernelpte = (*pte) &amp; ~PTE_U;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// ...
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// kernel/sysproc.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>uint64
+</span></span><span style="display:flex;"><span>sys_sbrk(<span style="">void</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="">int</span> addr;
+</span></span><span style="display:flex;"><span>  <span style="">int</span> n;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">struct</span> proc* p = myproc();
+</span></span><span style="display:flex;"><span>  pte_t* pte, *kernelpte;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">if</span>(argint(0, &amp;n) &lt; 0)
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">return</span> -1;
+</span></span><span style="display:flex;"><span>  addr = myproc()-&gt;sz;
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">if</span>(growproc(n) &lt; 0)
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">return</span> -1;
+</span></span><span style="display:flex;"><span>  <span style="font-style:italic">// 添加映射到kernel_pagetable
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>  <span style="font-weight:bold">if</span>(n &gt; 0){
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">for</span>(<span style="">int</span> j = addr; j &lt; addr + n; j += PGSIZE){
+</span></span><span style="display:flex;"><span>        pte = walk(p-&gt;pagetable, j, 0);
+</span></span><span style="display:flex;"><span>        kernelpte = walk(p-&gt;kernel_pagetable, j, 1);
+</span></span><span style="display:flex;"><span>        *kernelpte = (*pte) &amp; ~PTE_U;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }<span style="font-weight:bold">else</span>{
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">for</span>(<span style="">int</span> j = addr - PGSIZE; j &gt;= addr + n; j -= PGSIZE){
+</span></span><span style="display:flex;"><span>        uvmunmap(p-&gt;kernel_pagetable, j, 1, 0);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="font-weight:bold">return</span> addr;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>效果如图 <br>
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab3-3.png" alt=""></p>
+<h2 id="实验总结">
+  实验总结
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e6%80%bb%e7%bb%93">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<p>该实验是比较难的一个实验，需要完全明白xv6的页表是如何实现的，同时要对用户进程分配释放等比较清楚，需要看到大部分kernel/proc.c的代码，以及虚拟内存相关的代码，花了很长时间去完成该lab。总之搞懂每个函数的作用，按照hint去做，也能够完成</p>
+
+      </div>
+
+
+      <footer>
+        
+
+
+        
+        
+        
+      </footer>
+    </article>
+
+    
+  </section>
+
+    </div>
+
+    <footer class="footer">
+  <section class="container">
+    ©
+    
+      2019 -
+    
+    2022
+     Yang Wei 
+    ·
+    
+    Powered by <a href="https://gohugo.io/">Hugo</a> & <a href="https://github.com/luizdepra/hugo-coder/">Coder</a>.
+    
+  </section>
+</footer>
+
+  </main>
+
+  
+  
+  <script src="../../../../js/coder.min.f411a1043e37c7c14dfb03f4d94d60d9ee69cfa413b16d0fd4f28695babb82bb.js" integrity="sha256-9BGhBD43x8FN&#43;wP02U1g2e5pz6QTsW0P1PKGlbq7grs="></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</body>
+
+</html>

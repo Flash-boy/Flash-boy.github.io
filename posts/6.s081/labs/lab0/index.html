@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+
+
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; block-all-mixed-content; default-src 'self'; child-src 'self'; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net/; form-action 'self'; frame-src 'self'; img-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdn.jsdelivr.net/; script-src 'self' 'unsafe-inline' https://www.google-analytics.com https://cdn.jsdelivr.net/; prefetch-src 'self'; connect-src 'self' https://www.google-analytics.com;">
+
+
+
+
+<meta name="author" content="Yang Wei">
+<meta name="description" content="环境搭建写在前面要完成课程实验，希望你可以主动去学习一些工具的使用，将有助于高效完成整个实验，这些工具也是作为一个linux系统开发人员必备的知识，我自己常用的工具主要有以下几个：
+tmux：终端复用工具 vim：代码编辑器 git：版本控制工具 gdb：代码调试器 tmux：做整个实验，我们必然需要打开多个文件，查看多个xv6内核的源码，tmux可以帮住我们同时打开多个窗口，并且在多个窗口来回切换。相信我真的特别好用。😉
+vim：linux自带的代码编辑器，不必多说，喜欢的喜欢不得了，不用的嫌麻烦，我觉得还是很有必要去学习的。vim是学习成本比较高的，学习路线比较陡峭，学到手收益也是很大的。
+git：每个开发人员都应该掌握的代码管理工具，学习git不仅仅是学习命令的使用，更应该学习它的底层实验原理，这样会更加理解每个命令的实际作用。
+gdb：linux下的代码调试工具，是真的好用，也是该课程的调试工具。
+可能以上工具觉得有点杂，但是有一门由MIT助教发起的课程，叫做计算机教育中缺失的一课。该课程不长10个小时左右，就介绍了上述的各种工具，强烈建议可以去学习一下，对于工作开发十分有用，这里是该课的课程主页和视频资源，B站，youtube。
+通过计算机教育中缺失的一课我还学习到了一个很重要的工具dotfiles，如何管理你的每个工具的配置文件，当你在切换工作机器或者电脑时，能很方便的配置你的计算机，定制化你的配置，包括shell、vim、tmux、git等。这门课的主讲人之一Anish Athalye开发了一个dotbot,可以很方便的管理你的dotfiles。我参考他的dotfiles编写了自己的dotfiles,有需要的自取^_^。
+当然，也希望你目前能够翻墙，因为这有助于你在linux下下载某些软件包时不会因为网络原因无法成功。懂的都懂 😏
+官方指导配置环境官方给出了不同机器的配置方式，这里主要介绍在window下利用虚拟机进行配置。推荐采用ubuntu20.04系统，因为没什么坑😂。推荐使用Virtual Box安装ubuntu20.04。
+使用官方给的命令即可初步配置环境
+sudo apt-get install git build-essential gdb-multiarch qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu sudo apt-get remove qemu-system-misc sudo apt-get install qemu-system-misc=1:4.2-3ubuntu6 接着安装官方指引确认以下两个软件已经安装
+~ &gt; riscv64-unknown-elf-gcc --version riscv64-unknown-elf-gcc () 9.3.0 ... # 可以看到输出的版本并没有官方指导书上一致，没有关系 # 如果出现了 Command &#39;riscv64-unknown-elf-gcc&#39; not found 字样，说明没有安装该工具，运行下面命令即可 # sudo apt install gcc-riscv64-unknown-elf ~ &gt; qemu-system-riscv64 --version QEMU emulator version 4.2.1 (Debian 1:4.">
+<meta name="keywords" content="blog,developer,personal">
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Lab0 环境搭建"/>
+<meta name="twitter:description" content="环境搭建写在前面要完成课程实验，希望你可以主动去学习一些工具的使用，将有助于高效完成整个实验，这些工具也是作为一个linux系统开发人员必备的知识，我自己常用的工具主要有以下几个：
+tmux：终端复用工具 vim：代码编辑器 git：版本控制工具 gdb：代码调试器 tmux：做整个实验，我们必然需要打开多个文件，查看多个xv6内核的源码，tmux可以帮住我们同时打开多个窗口，并且在多个窗口来回切换。相信我真的特别好用。😉
+vim：linux自带的代码编辑器，不必多说，喜欢的喜欢不得了，不用的嫌麻烦，我觉得还是很有必要去学习的。vim是学习成本比较高的，学习路线比较陡峭，学到手收益也是很大的。
+git：每个开发人员都应该掌握的代码管理工具，学习git不仅仅是学习命令的使用，更应该学习它的底层实验原理，这样会更加理解每个命令的实际作用。
+gdb：linux下的代码调试工具，是真的好用，也是该课程的调试工具。
+可能以上工具觉得有点杂，但是有一门由MIT助教发起的课程，叫做计算机教育中缺失的一课。该课程不长10个小时左右，就介绍了上述的各种工具，强烈建议可以去学习一下，对于工作开发十分有用，这里是该课的课程主页和视频资源，B站，youtube。
+通过计算机教育中缺失的一课我还学习到了一个很重要的工具dotfiles，如何管理你的每个工具的配置文件，当你在切换工作机器或者电脑时，能很方便的配置你的计算机，定制化你的配置，包括shell、vim、tmux、git等。这门课的主讲人之一Anish Athalye开发了一个dotbot,可以很方便的管理你的dotfiles。我参考他的dotfiles编写了自己的dotfiles,有需要的自取^_^。
+当然，也希望你目前能够翻墙，因为这有助于你在linux下下载某些软件包时不会因为网络原因无法成功。懂的都懂 😏
+官方指导配置环境官方给出了不同机器的配置方式，这里主要介绍在window下利用虚拟机进行配置。推荐采用ubuntu20.04系统，因为没什么坑😂。推荐使用Virtual Box安装ubuntu20.04。
+使用官方给的命令即可初步配置环境
+sudo apt-get install git build-essential gdb-multiarch qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu sudo apt-get remove qemu-system-misc sudo apt-get install qemu-system-misc=1:4.2-3ubuntu6 接着安装官方指引确认以下两个软件已经安装
+~ &gt; riscv64-unknown-elf-gcc --version riscv64-unknown-elf-gcc () 9.3.0 ... # 可以看到输出的版本并没有官方指导书上一致，没有关系 # 如果出现了 Command &#39;riscv64-unknown-elf-gcc&#39; not found 字样，说明没有安装该工具，运行下面命令即可 # sudo apt install gcc-riscv64-unknown-elf ~ &gt; qemu-system-riscv64 --version QEMU emulator version 4.2.1 (Debian 1:4."/>
+
+<meta property="og:title" content="Lab0 环境搭建" />
+<meta property="og:description" content="环境搭建写在前面要完成课程实验，希望你可以主动去学习一些工具的使用，将有助于高效完成整个实验，这些工具也是作为一个linux系统开发人员必备的知识，我自己常用的工具主要有以下几个：
+tmux：终端复用工具 vim：代码编辑器 git：版本控制工具 gdb：代码调试器 tmux：做整个实验，我们必然需要打开多个文件，查看多个xv6内核的源码，tmux可以帮住我们同时打开多个窗口，并且在多个窗口来回切换。相信我真的特别好用。😉
+vim：linux自带的代码编辑器，不必多说，喜欢的喜欢不得了，不用的嫌麻烦，我觉得还是很有必要去学习的。vim是学习成本比较高的，学习路线比较陡峭，学到手收益也是很大的。
+git：每个开发人员都应该掌握的代码管理工具，学习git不仅仅是学习命令的使用，更应该学习它的底层实验原理，这样会更加理解每个命令的实际作用。
+gdb：linux下的代码调试工具，是真的好用，也是该课程的调试工具。
+可能以上工具觉得有点杂，但是有一门由MIT助教发起的课程，叫做计算机教育中缺失的一课。该课程不长10个小时左右，就介绍了上述的各种工具，强烈建议可以去学习一下，对于工作开发十分有用，这里是该课的课程主页和视频资源，B站，youtube。
+通过计算机教育中缺失的一课我还学习到了一个很重要的工具dotfiles，如何管理你的每个工具的配置文件，当你在切换工作机器或者电脑时，能很方便的配置你的计算机，定制化你的配置，包括shell、vim、tmux、git等。这门课的主讲人之一Anish Athalye开发了一个dotbot,可以很方便的管理你的dotfiles。我参考他的dotfiles编写了自己的dotfiles,有需要的自取^_^。
+当然，也希望你目前能够翻墙，因为这有助于你在linux下下载某些软件包时不会因为网络原因无法成功。懂的都懂 😏
+官方指导配置环境官方给出了不同机器的配置方式，这里主要介绍在window下利用虚拟机进行配置。推荐采用ubuntu20.04系统，因为没什么坑😂。推荐使用Virtual Box安装ubuntu20.04。
+使用官方给的命令即可初步配置环境
+sudo apt-get install git build-essential gdb-multiarch qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu sudo apt-get remove qemu-system-misc sudo apt-get install qemu-system-misc=1:4.2-3ubuntu6 接着安装官方指引确认以下两个软件已经安装
+~ &gt; riscv64-unknown-elf-gcc --version riscv64-unknown-elf-gcc () 9.3.0 ... # 可以看到输出的版本并没有官方指导书上一致，没有关系 # 如果出现了 Command &#39;riscv64-unknown-elf-gcc&#39; not found 字样，说明没有安装该工具，运行下面命令即可 # sudo apt install gcc-riscv64-unknown-elf ~ &gt; qemu-system-riscv64 --version QEMU emulator version 4.2.1 (Debian 1:4." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://flash-boy.github.io/posts/6.s081/labs/lab0/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2022-06-05T00:00:00+00:00" />
+<meta property="article:modified_time" content="2022-06-05T00:00:00+00:00" />
+
+
+
+
+  <title>Yang Wei</title>
+
+  
+  <link rel="canonical" href="https://flash-boy.github.io/posts/6.s081/labs/lab0/">
+  
+
+  <link rel="preload" href="../../../../fonts/forkawesome-webfont.woff2?v=1.2.0" as="font" type="font/woff2" crossorigin>
+
+
+  
+  
+  <link rel="stylesheet" href="../../../../css/coder.min.6b1a4fbc48955b72aea7913e43fabeb45e8bc120da5aa41b598dd33adcac4b59.css" integrity="sha256-axpPvEiVW3Kup5E&#43;Q/q&#43;tF6LwSDaWqQbWY3TOtysS1k=" crossorigin="anonymous" media="screen" />
+
+
+
+
+
+  
+  
+    
+    
+    <link rel="stylesheet" href="../../../../css/coder-dark.min.39e41a7f16bdf8cb16e43cae7d714fa1016f1d2d2898a5b3f27f42c9979204e2.css" integrity="sha256-OeQafxa9&#43;MsW5DyufXFPoQFvHS0omKWz8n9CyZeSBOI=" crossorigin="anonymous" media="screen" />
+  
+
+
+
+   
+
+
+
+
+  <link rel="icon" type="image/png" href="../../../../images/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="../../../../images/favicon-16x16.png" sizes="16x16">
+
+<link rel="apple-touch-icon" href="../../../../images/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../../images/apple-touch-icon.png">
+
+<link rel="manifest" href="../../../../site.webmanifest">
+<link rel="mask-icon" href="../../../../images/safari-pinned-tab.svg" color="#5bbad5">
+
+
+  
+
+  <meta name="generator" content="Hugo 0.100.1" />
+
+
+  
+
+</head>
+
+
+
+
+
+
+
+<body class="preload-transitions colorscheme-auto">
+  
+<div class="float-container">
+    <a id="dark-mode-toggle" class="colorscheme-toggle">
+        <i class="fa fa-adjust fa-fw" aria-hidden="true"></i>
+    </a>
+</div>
+
+
+  <main class="wrapper">
+    <nav class="navigation">
+  <section class="container">
+    <a class="navigation-title" href="../../../../">
+      Yang Wei
+    </a>
+    
+      <input type="checkbox" id="menu-toggle" />
+      <label class="menu-button float-right" for="menu-toggle">
+        <i class="fa fa-bars fa-fw" aria-hidden="true"></i>
+      </label>
+      <ul class="navigation-list">
+        
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../about/">About</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../posts/">Blog</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../projects/">Projects</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../contact/">Contact me</a>
+            </li>
+          
+        
+        
+      </ul>
+    
+  </section>
+</nav>
+
+
+    <div class="content">
+      
+  <section class="container post">
+    <article>
+      <header>
+        <div class="post-title">
+          <h1 class="title">
+            <a class="title-link" href="https://flash-boy.github.io/posts/6.s081/labs/lab0/">
+              Lab0 环境搭建
+            </a>
+          </h1>
+        </div>
+        <div class="post-meta">
+          <div class="date">
+            <span class="posted-on">
+              <i class="fa fa-calendar" aria-hidden="true"></i>
+              <time datetime="2022-06-05T00:00:00Z">
+                June 5, 2022
+              </time>
+            </span>
+            <span class="reading-time">
+              <i class="fa fa-clock-o" aria-hidden="true"></i>
+              One-minute read
+            </span>
+          </div>
+          
+          <div class="categories">
+  <i class="fa fa-folder" aria-hidden="true"></i>
+    <a href="../../../../categories/operator-system/">Operator System</a></div>
+
+          <div class="tags">
+  <i class="fa fa-tag" aria-hidden="true"></i>
+    <span class="tag">
+      <a href="../../../../tags/c/">C</a>
+    </span>
+      <span class="separator">•</span>
+    <span class="tag">
+      <a href="../../../../tags/course/">Course</a>
+    </span>
+      <span class="separator">•</span>
+    <span class="tag">
+      <a href="../../../../tags/mit/">MIT</a>
+    </span></div>
+
+        </div>
+      </header>
+
+      <div>
+        
+        <h1 id="环境搭建">
+  环境搭建
+  <a class="heading-link" href="#%e7%8e%af%e5%a2%83%e6%90%ad%e5%bb%ba">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h1>
+<h2 id="写在前面">
+  写在前面
+  <a class="heading-link" href="#%e5%86%99%e5%9c%a8%e5%89%8d%e9%9d%a2">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<p>要完成课程实验，希望你可以主动去学习一些工具的使用，将有助于高效完成整个实验，这些工具也是作为一个linux系统开发人员必备的知识，我自己常用的工具主要有以下几个：</p>
+<ul>
+<li><a href="https://www.man7.org/linux/man-pages/man1/tmux.1.html">tmux</a>：终端复用工具</li>
+<li><a href="https://missing.csail.mit.edu/2020/editors/">vim</a>：代码编辑器</li>
+<li><a href="https://missing.csail.mit.edu/2020/version-control/">git</a>：版本控制工具</li>
+<li><a href="https://www.sourceware.org/gdb/">gdb</a>：代码调试器</li>
+</ul>
+<p><strong>tmux</strong>：做整个实验，我们必然需要打开多个文件，查看多个xv6内核的源码，tmux可以帮住我们同时打开多个窗口，并且在多个窗口来回切换。相信我真的特别好用。😉<br>
+<strong>vim</strong>：linux自带的代码编辑器，不必多说，喜欢的喜欢不得了，不用的嫌麻烦，我觉得还是很有必要去学习的。vim是学习成本比较高的，学习路线比较陡峭，学到手收益也是很大的。<br>
+<strong>git</strong>：每个开发人员都应该掌握的代码管理工具，学习git不仅仅是学习命令的使用，更应该学习它的底层实验原理，这样会更加理解每个命令的实际作用。<br>
+<strong>gdb</strong>：linux下的代码调试工具，是真的好用，也是该课程的调试工具。</p>
+<p>可能以上工具觉得有点杂，但是有一门由MIT助教发起的课程，叫做<strong>计算机教育中缺失的一课</strong>。该课程不长10个小时左右，就介绍了上述的各种工具，强烈建议可以去学习一下，对于工作开发十分有用，这里是该课的<a href="https://missing.csail.mit.edu/">课程主页</a>和视频资源，<a href="https://www.bilibili.com/video/BV1x7411H7wa?spm_id_from=333.1007.top_right_bar_window_custom_collection.content.click">B站</a>，<a href="https://www.youtube.com/channel/UCuXy5tCgEninup9cGplbiFw">youtube</a>。</p>
+<p>通过<strong>计算机教育中缺失的一课</strong>我还学习到了一个很重要的工具<strong>dotfiles</strong>，如何管理你的每个工具的配置文件，当你在切换工作机器或者电脑时，能很方便的配置你的计算机，定制化你的配置，包括shell、vim、tmux、git等。这门课的主讲人之一<a href="https://github.com/anishathalye">Anish Athalye</a>开发了一个<a href="https://github.com/anishathalye/dotbot">dotbot</a>,可以很方便的管理你的dotfiles。我参考他的dotfiles编写了自己的<a href="https://github.com/Flash-boy/dotfiles">dotfiles</a>,有需要的自取^_^。</p>
+<p>当然，也希望你目前能够翻墙，因为这有助于你在linux下下载某些软件包时不会因为网络原因无法成功。懂的都懂 😏</p>
+<h2 id="官方指导配置环境httpspdoscsailmitedu68282020toolshtml">
+  <a href="https://pdos.csail.mit.edu/6.828/2020/tools.html">官方指导配置环境</a>
+  <a class="heading-link" href="#%e5%ae%98%e6%96%b9%e6%8c%87%e5%af%bc%e9%85%8d%e7%bd%ae%e7%8e%af%e5%a2%83httpspdoscsailmitedu68282020toolshtml">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<p>官方给出了不同机器的配置方式，这里主要介绍在window下利用虚拟机进行配置。推荐采用ubuntu20.04系统，因为没什么坑😂。推荐使用<a href="https://www.virtualbox.org/">Virtual Box</a>安装<a href="https://ubuntu.com/#download">ubuntu20.04</a>。</p>
+<p>使用官方给的命令即可初步配置环境</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>sudo apt-get install git build-essential gdb-multiarch qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>sudo apt-get remove qemu-system-misc
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>sudo apt-get install qemu-system-misc=1:4.2-3ubuntu6 
+</span></span></code></pre></div><p>接着安装官方指引确认以下两个软件已经安装</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>~ &gt; riscv64-unknown-elf-gcc --version
+</span></span><span style="display:flex;"><span>riscv64-unknown-elf-gcc () 9.3.0
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic"># 可以看到输出的版本并没有官方指导书上一致，没有关系</span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic"># 如果出现了 Command &#39;riscv64-unknown-elf-gcc&#39; not found 字样，说明没有安装该工具，运行下面命令即可</span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic"># sudo apt install gcc-riscv64-unknown-elf</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>~ &gt; qemu-system-riscv64 --version
+</span></span><span style="display:flex;"><span>QEMU emulator version 4.2.1 (Debian 1:4.2-3ubuntu6.21)
+</span></span><span style="display:flex;"><span><span style="font-style:italic"># 同样的也可以看到版本和官方提供的不一致，没关系</span>
+</span></span></code></pre></div><p>接着就可以下载官方提供的实验代码</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>~/Desktop &gt; git clone git://g.csail.mit.edu/xv6-labs-2020
+</span></span><span style="display:flex;"><span>Cloning into <span style="font-style:italic">&#39;xv6-labs-2020&#39;</span>...
+</span></span><span style="display:flex;"><span>...
+</span></span></code></pre></div><p>切换到对应的代码目录下</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>~/Desktop &gt; cd xv6-labs-2020 
+</span></span><span style="display:flex;"><span>~/Desktop/xv6-labs-2020 &gt; ls 
+</span></span><span style="display:flex;"><span><span style="font-style:italic"># 可以发现该目录下并没有代码，这是因为代码通过git管理</span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic"># 不同实验需要切换到不同分支，首先通过以下命令切换到</span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic"># lab1 Utilities所在分支</span>
+</span></span><span style="display:flex;"><span>~/Desktop/xv6-labs-2020 &gt; git checkout util    
+</span></span></code></pre></div><p>然后执行以下命令就可以编译xv6</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>~/Desktop/xv6-labs-2020 &gt; make qemu   
+</span></span></code></pre></div><p>如果成功可以看到如下图片
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab0-1.png" alt=""></p>
+<p>现在虽然能够编译运行xv6，但按照官方的指导仍然不能使用gdb调试内核，所以我们需要利用gdb-multiarch启动gdb调试
+首先运行以下命令</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>~/Desktop/xv6-labs-2020 &gt; echo <span style="font-style:italic">&#34;add-auto-load-safe-path XV6_LAB_PATH/.gdbinit&#34;</span> &gt;&gt; ~/.gdbinit 
+</span></span><span style="display:flex;"><span><span style="font-style:italic"># 这里XV6_LAB_PATH是指你下载的实验代码所在目录例如我的就是 ~/Desktop/xv6-labs-2020，替换成你的实验代码所在目录即可</span>
+</span></span></code></pre></div><p>然后开启两个窗口，分别运行以下两命令</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>~/Desktop/xv6-labs-2020 &gt; make CPUS=1 qemu-gdb
+</span></span><span style="display:flex;"><span>~/Desktop/xv6-labs-2020 &gt; gdb-multiarch
+</span></span></code></pre></div><p>可以看到成功的效果如图所示
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab0-2.png" alt=""></p>
+<p>至此完成了所需的实验环境安装，当然你也可以按照官方指导书自己去编译相关的工具。</p>
+<h2 id="docker配置环境">
+  docker配置环境
+  <a class="heading-link" href="#docker%e9%85%8d%e7%bd%ae%e7%8e%af%e5%a2%83">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<p>利用docker容器可以很方便的完成环境搭建，具体参考<a href="https://www.bilibili.com/video/BV1Qi4y1o7tN/?spm_id_from=333.788">这里</a>。</p>
+
+      </div>
+
+
+      <footer>
+        
+
+
+        
+        
+        
+      </footer>
+    </article>
+
+    
+  </section>
+
+    </div>
+
+    <footer class="footer">
+  <section class="container">
+    ©
+    
+      2019 -
+    
+    2022
+     Yang Wei 
+    ·
+    
+    Powered by <a href="https://gohugo.io/">Hugo</a> & <a href="https://github.com/luizdepra/hugo-coder/">Coder</a>.
+    
+  </section>
+</footer>
+
+  </main>
+
+  
+  
+  <script src="../../../../js/coder.min.f411a1043e37c7c14dfb03f4d94d60d9ee69cfa413b16d0fd4f28695babb82bb.js" integrity="sha256-9BGhBD43x8FN&#43;wP02U1g2e5pz6QTsW0P1PKGlbq7grs="></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</body>
+
+</html>

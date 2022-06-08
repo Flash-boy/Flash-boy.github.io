@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+
+
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; block-all-mixed-content; default-src 'self'; child-src 'self'; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net/; form-action 'self'; frame-src 'self'; img-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/ https://cdn.jsdelivr.net/; script-src 'self' 'unsafe-inline' https://www.google-analytics.com https://cdn.jsdelivr.net/; prefetch-src 'self'; connect-src 'self' https://www.google-analytics.com;">
+
+
+
+
+<meta name="author" content="Yang Wei">
+<meta name="description" content="Utilities实验目标本实验主要是来熟悉xv6和它的系统调用，系统调用是一类特殊的函数，是操作系统提供的一类对特殊资源的访问，像磁盘，IO等。本课程有一个核心就是理解系统调用是如何实现的，在后续课程内容会又详细介绍。在命令行中我们经常看到许多内置的命令例如 cd, ls等，这些命令就是利用系统调用封装的用户级程序。lab会要求实现几个类似的工具命令。总体来说本lab不难，主要是对xv6的熟悉。
+每个实验都有相应的代码分支管理，所有在每个实验需要切换到对应分支。基本按照lab主页的提示(hint)就可以完成该实验，
+实验详解Boot xv6 (easy)启动xv6,运行内置的ls命令。
+很简单，只要照着做就能看到如下效果。
+xv6操作系统自己实验了一些常用的命令，像cat, ls, echo等。接下来的任务就是实现一些类似的命令。
+1. sleep (easy)sleep 要求在程序sleep一小段时间，解决方法是调用xv6系统提供的系统调用函数。这里说一下xv6源代码主要有两个文件夹 kernel/ 和 user/。kernel主要是内核代码的实现，user则是用户编写的代码，例如前面的cat, ls, echo以及我们实现的sleep等。因此按照要求编写代码 user/sleep.c代码如下
+// user/sleep.c #include &#34;kernel/types.h&#34; #include &#34;kernel/stat.h&#34; #include &#34;user/user.h&#34; int main(int argc, char* argv[]){ if(argc != 2){ printf(&#34;Usage: sleep &lt;seconds&gt;\n&#34;); exit(1); } sleep(atoi(argv[1]) * 10); exit(0); } user/user.h头文件包含了xv6提供的系统调用的声明，需要包含。
+程序的返回xv6中必须用exit函数。
+别忘了更新Makefile
+编译运行，并输入sleep可以看到如下的
+pingpong (easy)pipe是进程通信的一种方式，pipe是一种单向的数据传输，从一端输入，从另一端输出。pingpong要求在父子进程中传输数据，并输出各自pid。核心就是利用pipe函数两次，利用fork函数创建子进程，在父子进程中注意关闭不需要的读端和写端，然后读写pipe。
+// user/pingpong.c #include &#34;kernel/types.h&#34; #include &#34;kernel/stat.h&#34; #include &#34;user/user.h&#34; int main(int argc, char* argv[]){ int p1[2], p2[2]; if(pipe(p1) &lt; 0 || pipe(p2) &lt; 0){ printf(&#34;Error: pipe()\n&#34;); exit(1); } int pid; if((pid = fork()) == 0){ close(p1[1]); close(p2[0]); char c; int p = getpid(); read(p1[0], &amp;c, 1); printf(&#34;%d: received ping\n&#34;, p); close(p1[0]); write(p2[1], &amp;c, 1); close(p2[1]); }else{ close(p1[0]); close(p2[1]); int p = getpid(); char c; write(p1[1], &#34;w&#34;, 1); close(p1[1]); read(p2[0], &amp;c, 1); printf(&#34;%d: received pong\n&#34;, p); close(p2[0]); } exit(0); } 效果如图">
+<meta name="keywords" content="blog,developer,personal">
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Lab1 Utilities"/>
+<meta name="twitter:description" content="Utilities实验目标本实验主要是来熟悉xv6和它的系统调用，系统调用是一类特殊的函数，是操作系统提供的一类对特殊资源的访问，像磁盘，IO等。本课程有一个核心就是理解系统调用是如何实现的，在后续课程内容会又详细介绍。在命令行中我们经常看到许多内置的命令例如 cd, ls等，这些命令就是利用系统调用封装的用户级程序。lab会要求实现几个类似的工具命令。总体来说本lab不难，主要是对xv6的熟悉。
+每个实验都有相应的代码分支管理，所有在每个实验需要切换到对应分支。基本按照lab主页的提示(hint)就可以完成该实验，
+实验详解Boot xv6 (easy)启动xv6,运行内置的ls命令。
+很简单，只要照着做就能看到如下效果。
+xv6操作系统自己实验了一些常用的命令，像cat, ls, echo等。接下来的任务就是实现一些类似的命令。
+1. sleep (easy)sleep 要求在程序sleep一小段时间，解决方法是调用xv6系统提供的系统调用函数。这里说一下xv6源代码主要有两个文件夹 kernel/ 和 user/。kernel主要是内核代码的实现，user则是用户编写的代码，例如前面的cat, ls, echo以及我们实现的sleep等。因此按照要求编写代码 user/sleep.c代码如下
+// user/sleep.c #include &#34;kernel/types.h&#34; #include &#34;kernel/stat.h&#34; #include &#34;user/user.h&#34; int main(int argc, char* argv[]){ if(argc != 2){ printf(&#34;Usage: sleep &lt;seconds&gt;\n&#34;); exit(1); } sleep(atoi(argv[1]) * 10); exit(0); } user/user.h头文件包含了xv6提供的系统调用的声明，需要包含。
+程序的返回xv6中必须用exit函数。
+别忘了更新Makefile
+编译运行，并输入sleep可以看到如下的
+pingpong (easy)pipe是进程通信的一种方式，pipe是一种单向的数据传输，从一端输入，从另一端输出。pingpong要求在父子进程中传输数据，并输出各自pid。核心就是利用pipe函数两次，利用fork函数创建子进程，在父子进程中注意关闭不需要的读端和写端，然后读写pipe。
+// user/pingpong.c #include &#34;kernel/types.h&#34; #include &#34;kernel/stat.h&#34; #include &#34;user/user.h&#34; int main(int argc, char* argv[]){ int p1[2], p2[2]; if(pipe(p1) &lt; 0 || pipe(p2) &lt; 0){ printf(&#34;Error: pipe()\n&#34;); exit(1); } int pid; if((pid = fork()) == 0){ close(p1[1]); close(p2[0]); char c; int p = getpid(); read(p1[0], &amp;c, 1); printf(&#34;%d: received ping\n&#34;, p); close(p1[0]); write(p2[1], &amp;c, 1); close(p2[1]); }else{ close(p1[0]); close(p2[1]); int p = getpid(); char c; write(p1[1], &#34;w&#34;, 1); close(p1[1]); read(p2[0], &amp;c, 1); printf(&#34;%d: received pong\n&#34;, p); close(p2[0]); } exit(0); } 效果如图"/>
+
+<meta property="og:title" content="Lab1 Utilities" />
+<meta property="og:description" content="Utilities实验目标本实验主要是来熟悉xv6和它的系统调用，系统调用是一类特殊的函数，是操作系统提供的一类对特殊资源的访问，像磁盘，IO等。本课程有一个核心就是理解系统调用是如何实现的，在后续课程内容会又详细介绍。在命令行中我们经常看到许多内置的命令例如 cd, ls等，这些命令就是利用系统调用封装的用户级程序。lab会要求实现几个类似的工具命令。总体来说本lab不难，主要是对xv6的熟悉。
+每个实验都有相应的代码分支管理，所有在每个实验需要切换到对应分支。基本按照lab主页的提示(hint)就可以完成该实验，
+实验详解Boot xv6 (easy)启动xv6,运行内置的ls命令。
+很简单，只要照着做就能看到如下效果。
+xv6操作系统自己实验了一些常用的命令，像cat, ls, echo等。接下来的任务就是实现一些类似的命令。
+1. sleep (easy)sleep 要求在程序sleep一小段时间，解决方法是调用xv6系统提供的系统调用函数。这里说一下xv6源代码主要有两个文件夹 kernel/ 和 user/。kernel主要是内核代码的实现，user则是用户编写的代码，例如前面的cat, ls, echo以及我们实现的sleep等。因此按照要求编写代码 user/sleep.c代码如下
+// user/sleep.c #include &#34;kernel/types.h&#34; #include &#34;kernel/stat.h&#34; #include &#34;user/user.h&#34; int main(int argc, char* argv[]){ if(argc != 2){ printf(&#34;Usage: sleep &lt;seconds&gt;\n&#34;); exit(1); } sleep(atoi(argv[1]) * 10); exit(0); } user/user.h头文件包含了xv6提供的系统调用的声明，需要包含。
+程序的返回xv6中必须用exit函数。
+别忘了更新Makefile
+编译运行，并输入sleep可以看到如下的
+pingpong (easy)pipe是进程通信的一种方式，pipe是一种单向的数据传输，从一端输入，从另一端输出。pingpong要求在父子进程中传输数据，并输出各自pid。核心就是利用pipe函数两次，利用fork函数创建子进程，在父子进程中注意关闭不需要的读端和写端，然后读写pipe。
+// user/pingpong.c #include &#34;kernel/types.h&#34; #include &#34;kernel/stat.h&#34; #include &#34;user/user.h&#34; int main(int argc, char* argv[]){ int p1[2], p2[2]; if(pipe(p1) &lt; 0 || pipe(p2) &lt; 0){ printf(&#34;Error: pipe()\n&#34;); exit(1); } int pid; if((pid = fork()) == 0){ close(p1[1]); close(p2[0]); char c; int p = getpid(); read(p1[0], &amp;c, 1); printf(&#34;%d: received ping\n&#34;, p); close(p1[0]); write(p2[1], &amp;c, 1); close(p2[1]); }else{ close(p1[0]); close(p2[1]); int p = getpid(); char c; write(p1[1], &#34;w&#34;, 1); close(p1[1]); read(p2[0], &amp;c, 1); printf(&#34;%d: received pong\n&#34;, p); close(p2[0]); } exit(0); } 效果如图" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://flash-boy.github.io/posts/6.s081/labs/lab1/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2022-06-05T00:00:00+00:00" />
+<meta property="article:modified_time" content="2022-06-05T00:00:00+00:00" />
+
+
+
+
+  <title>Yang Wei</title>
+
+  
+  <link rel="canonical" href="https://flash-boy.github.io/posts/6.s081/labs/lab1/">
+  
+
+  <link rel="preload" href="../../../../fonts/forkawesome-webfont.woff2?v=1.2.0" as="font" type="font/woff2" crossorigin>
+
+
+  
+  
+  <link rel="stylesheet" href="../../../../css/coder.min.6b1a4fbc48955b72aea7913e43fabeb45e8bc120da5aa41b598dd33adcac4b59.css" integrity="sha256-axpPvEiVW3Kup5E&#43;Q/q&#43;tF6LwSDaWqQbWY3TOtysS1k=" crossorigin="anonymous" media="screen" />
+
+
+
+
+
+  
+  
+    
+    
+    <link rel="stylesheet" href="../../../../css/coder-dark.min.39e41a7f16bdf8cb16e43cae7d714fa1016f1d2d2898a5b3f27f42c9979204e2.css" integrity="sha256-OeQafxa9&#43;MsW5DyufXFPoQFvHS0omKWz8n9CyZeSBOI=" crossorigin="anonymous" media="screen" />
+  
+
+
+
+   
+
+
+
+
+  <link rel="icon" type="image/png" href="../../../../images/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="../../../../images/favicon-16x16.png" sizes="16x16">
+
+<link rel="apple-touch-icon" href="../../../../images/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../../../images/apple-touch-icon.png">
+
+<link rel="manifest" href="../../../../site.webmanifest">
+<link rel="mask-icon" href="../../../../images/safari-pinned-tab.svg" color="#5bbad5">
+
+
+  
+
+  <meta name="generator" content="Hugo 0.100.1" />
+
+
+  
+
+</head>
+
+
+
+
+
+
+
+<body class="preload-transitions colorscheme-auto">
+  
+<div class="float-container">
+    <a id="dark-mode-toggle" class="colorscheme-toggle">
+        <i class="fa fa-adjust fa-fw" aria-hidden="true"></i>
+    </a>
+</div>
+
+
+  <main class="wrapper">
+    <nav class="navigation">
+  <section class="container">
+    <a class="navigation-title" href="../../../../">
+      Yang Wei
+    </a>
+    
+      <input type="checkbox" id="menu-toggle" />
+      <label class="menu-button float-right" for="menu-toggle">
+        <i class="fa fa-bars fa-fw" aria-hidden="true"></i>
+      </label>
+      <ul class="navigation-list">
+        
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../about/">About</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../posts/">Blog</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../projects/">Projects</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link" href="../../../../contact/">Contact me</a>
+            </li>
+          
+        
+        
+      </ul>
+    
+  </section>
+</nav>
+
+
+    <div class="content">
+      
+  <section class="container post">
+    <article>
+      <header>
+        <div class="post-title">
+          <h1 class="title">
+            <a class="title-link" href="https://flash-boy.github.io/posts/6.s081/labs/lab1/">
+              Lab1 Utilities
+            </a>
+          </h1>
+        </div>
+        <div class="post-meta">
+          <div class="date">
+            <span class="posted-on">
+              <i class="fa fa-calendar" aria-hidden="true"></i>
+              <time datetime="2022-06-05T00:00:00Z">
+                June 5, 2022
+              </time>
+            </span>
+            <span class="reading-time">
+              <i class="fa fa-clock-o" aria-hidden="true"></i>
+              3-minute read
+            </span>
+          </div>
+          
+          <div class="categories">
+  <i class="fa fa-folder" aria-hidden="true"></i>
+    <a href="../../../../categories/operator-system/">Operator System</a></div>
+
+          <div class="tags">
+  <i class="fa fa-tag" aria-hidden="true"></i>
+    <span class="tag">
+      <a href="../../../../tags/c/">C</a>
+    </span>
+      <span class="separator">•</span>
+    <span class="tag">
+      <a href="../../../../tags/course/">Course</a>
+    </span>
+      <span class="separator">•</span>
+    <span class="tag">
+      <a href="../../../../tags/mit/">MIT</a>
+    </span></div>
+
+        </div>
+      </header>
+
+      <div>
+        
+        <h1 id="utilitieshttpspdoscsailmitedu68282020labsutilhtml">
+  <a href="https://pdos.csail.mit.edu/6.828/2020/labs/util.html">Utilities</a>
+  <a class="heading-link" href="#utilitieshttpspdoscsailmitedu68282020labsutilhtml">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h1>
+<h2 id="实验目标">
+  实验目标
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e7%9b%ae%e6%a0%87">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<p>本实验主要是来熟悉xv6和它的系统调用，系统调用是一类特殊的函数，是操作系统提供的一类对特殊资源的访问，像磁盘，IO等。本课程有一个核心就是理解系统调用是如何实现的，在后续课程内容会又详细介绍。在命令行中我们经常看到许多内置的命令例如 <strong>cd</strong>, <strong>ls</strong>等，这些命令就是利用系统调用封装的用户级程序。lab会要求实现几个类似的工具命令。总体来说本lab不难，主要是对xv6的熟悉。</p>
+<p>每个实验都有相应的代码分支管理，所有在每个实验需要切换到对应分支。基本按照lab主页的提示(hint)就可以完成该实验，</p>
+<h2 id="实验详解">
+  实验详解
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e8%af%a6%e8%a7%a3">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<h3 id="boot-xv6-easy">
+  Boot xv6 (easy)
+  <a class="heading-link" href="#boot-xv6-easy">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>启动xv6,运行内置的ls命令。<br>
+很简单，只要照着做就能看到如下效果。</p>
+<p><img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab1-1.png" alt=""></p>
+<p>xv6操作系统自己实验了一些常用的命令，像cat, ls, echo等。接下来的任务就是实现一些类似的命令。</p>
+<h3 id="1-sleep-easy">
+  1. sleep (easy)
+  <a class="heading-link" href="#1-sleep-easy">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>sleep 要求在程序sleep一小段时间，解决方法是调用xv6系统提供的系统调用函数。这里说一下xv6源代码主要有两个文件夹 kernel/ 和 user/。kernel主要是内核代码的实现，user则是用户编写的代码，例如前面的cat, ls, echo以及我们实现的sleep等。因此按照要求编写代码 user/sleep.c代码如下</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// user/sleep.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">#include</span> <span style="">&#34;kernel/types.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;kernel/stat.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;user/user.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style=""></span>
+</span></span><span style="display:flex;"><span><span style="">int</span> main(<span style="">int</span> argc, <span style="">char</span>* argv[]){
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(argc != 2){
+</span></span><span style="display:flex;"><span>        printf(<span style="font-style:italic">&#34;Usage: sleep &lt;seconds&gt;</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>);
+</span></span><span style="display:flex;"><span>        exit(1);
+</span></span><span style="display:flex;"><span>    }    
+</span></span><span style="display:flex;"><span>    sleep(atoi(argv[1]) * 10);
+</span></span><span style="display:flex;"><span>    exit(0);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>user/user.h头文件包含了xv6提供的系统调用的声明，需要包含。</p>
+<p>程序的返回xv6中必须用exit函数。</p>
+<p>别忘了更新Makefile</p>
+<p>编译运行，并输入sleep可以看到如下的</p>
+<p><img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab1-2.png" alt=""></p>
+<h3 id="pingpong-easy">
+  pingpong (easy)
+  <a class="heading-link" href="#pingpong-easy">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>pipe是进程通信的一种方式，pipe是一种单向的数据传输，从一端输入，从另一端输出。pingpong要求在父子进程中传输数据，并输出各自pid。核心就是利用pipe函数两次，利用fork函数创建子进程，在父子进程中注意关闭不需要的读端和写端，然后读写pipe。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// user/pingpong.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">#include</span> <span style="">&#34;kernel/types.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;kernel/stat.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;user/user.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style=""></span>
+</span></span><span style="display:flex;"><span><span style="">int</span> main(<span style="">int</span> argc, <span style="">char</span>* argv[]){
+</span></span><span style="display:flex;"><span>    <span style="">int</span> p1[2], p2[2];
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(pipe(p1) &lt; 0 || pipe(p2) &lt; 0){
+</span></span><span style="display:flex;"><span>        printf(<span style="font-style:italic">&#34;Error: pipe()</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>);
+</span></span><span style="display:flex;"><span>        exit(1);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="">int</span> pid;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>((pid = fork()) == 0){
+</span></span><span style="display:flex;"><span>        close(p1[1]); 
+</span></span><span style="display:flex;"><span>        close(p2[0]);
+</span></span><span style="display:flex;"><span>        <span style="">char</span> c;
+</span></span><span style="display:flex;"><span>        <span style="">int</span> p = getpid();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        read(p1[0], &amp;c, 1);
+</span></span><span style="display:flex;"><span>        printf(<span style="font-style:italic">&#34;%d: received ping</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, p);
+</span></span><span style="display:flex;"><span>        close(p1[0]);
+</span></span><span style="display:flex;"><span>        write(p2[1], &amp;c, 1);
+</span></span><span style="display:flex;"><span>        close(p2[1]);
+</span></span><span style="display:flex;"><span>    }<span style="font-weight:bold">else</span>{
+</span></span><span style="display:flex;"><span>        close(p1[0]);
+</span></span><span style="display:flex;"><span>        close(p2[1]);
+</span></span><span style="display:flex;"><span>        <span style="">int</span> p = getpid();
+</span></span><span style="display:flex;"><span>        <span style="">char</span> c;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        write(p1[1], <span style="font-style:italic">&#34;w&#34;</span>, 1); 
+</span></span><span style="display:flex;"><span>        close(p1[1]);
+</span></span><span style="display:flex;"><span>        read(p2[0], &amp;c, 1);
+</span></span><span style="display:flex;"><span>        printf(<span style="font-style:italic">&#34;%d: received pong</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, p);
+</span></span><span style="display:flex;"><span>        close(p2[0]);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    exit(0);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>效果如图<br>
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab1-3.png" alt=""></p>
+<h3 id="primes-moderatehard">
+  primes (moderate/hard)
+  <a class="heading-link" href="#primes-moderatehard">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>primes程序要求并行的输出一连串自然数中是质数的数据，核心是利用pipe和fork函数，一个很巧妙的算法步骤是</p>
+<ol>
+<li>从父进程读取数据，如果没有数据可读，返回；若有则读取到的第一个数一定是质数，记作n并输出。</li>
+<li>继续从父进程读取数据，判断该数是不是n的倍数，若是则忽略，若不是则写该数据到子进程。</li>
+</ol>
+<p><strong>注意关闭不需要的读端或写端</strong>。想象一下如果系统支持多核，是不是能够做到并行 😄</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// user/primes.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">#include</span> <span style="">&#34;kernel/types.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;kernel/stat.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;user/user.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style=""></span>
+</span></span><span style="display:flex;"><span><span style="">void</span> prime(<span style="">int</span> p[2]){
+</span></span><span style="display:flex;"><span>    close(p[1]); <span style="font-style:italic">//子进程关闭写端
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="">int</span> n;
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// 如果没有数据可读关闭读端
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="font-weight:bold">if</span>(read(p[0], &amp;n, <span style="font-weight:bold">sizeof</span>(n)) == 0){
+</span></span><span style="display:flex;"><span>        close(p[0]);
+</span></span><span style="display:flex;"><span>        exit(0);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    printf(<span style="font-style:italic">&#34;prime %d</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, n);
+</span></span><span style="display:flex;"><span>    <span style="">int</span> num;
+</span></span><span style="display:flex;"><span>    <span style="">int</span> p1[2]; pipe(p1);
+</span></span><span style="display:flex;"><span>    <span style="">int</span> pid = fork();
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(pid == 0){
+</span></span><span style="display:flex;"><span>        prime(p1);
+</span></span><span style="display:flex;"><span>    }<span style="font-weight:bold">else</span> <span style="font-weight:bold">if</span>(pid &gt; 0){
+</span></span><span style="display:flex;"><span>       close(p1[0]); 
+</span></span><span style="display:flex;"><span>       <span style="font-style:italic">// 从父进程读取数据，将当前不是质数倍数的传递给子进程
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>       <span style="font-weight:bold">while</span>(read(p[0], &amp;num, <span style="font-weight:bold">sizeof</span>(num))){
+</span></span><span style="display:flex;"><span>           <span style="font-weight:bold">if</span>(num % n != 0){
+</span></span><span style="display:flex;"><span>               write(p1[1], &amp;num, <span style="font-weight:bold">sizeof</span>(num));
+</span></span><span style="display:flex;"><span>           }
+</span></span><span style="display:flex;"><span>       }
+</span></span><span style="display:flex;"><span>       close(p); <span style="font-style:italic">//关闭从父进程读取的读端
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>       close(p1[1]); <span style="font-style:italic">//关闭向子进程写数据的写端
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>       wait(0);
+</span></span><span style="display:flex;"><span>       exit(0);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    exit(1);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="">int</span> main(<span style="">int</span> argc, <span style="">char</span>* argv[]){
+</span></span><span style="display:flex;"><span>    <span style="">int</span> p[2];
+</span></span><span style="display:flex;"><span>    pipe(p); 
+</span></span><span style="display:flex;"><span>    <span style="">int</span> pid = fork();
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(pid == 0){
+</span></span><span style="display:flex;"><span>        <span style="font-style:italic">// 子进程处理数据
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        prime(p);
+</span></span><span style="display:flex;"><span>    }<span style="font-weight:bold">else</span> <span style="font-weight:bold">if</span>(pid &gt; 0){
+</span></span><span style="display:flex;"><span>        <span style="font-style:italic">// 父进程传输筛选的数据给子进程
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        close(p[0]); <span style="font-style:italic">// 父进程关闭读端
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        <span style="font-weight:bold">for</span>(<span style="">int</span> i = 2; i &lt;= 35; ++i){
+</span></span><span style="display:flex;"><span>            write(p[1], &amp;i, <span style="font-weight:bold">sizeof</span>(i)); 
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        close(p[1]);<span style="font-style:italic">// 关闭写端，可以让读端read返回0
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        wait(0);<span style="font-style:italic">// 等待子进程运行结束
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>        exit(0);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    exit(1);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>效果如图<br>
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab1-4.png" alt=""></p>
+<h3 id="find-moderate">
+  find (moderate)
+  <a class="heading-link" href="#find-moderate">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>find命令要求递归查找某个目录下是否具有某个文件，核心是利用fstate函数读取某个文件或者目录，如果是文件，判断文件名是否符合要求，否则，递归查找。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// user/find.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">#include</span> <span style="">&#34;kernel/types.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;kernel/stat.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;user/user.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;kernel/fs.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style=""></span>
+</span></span><span style="display:flex;"><span><span style="font-style:italic">// 返回文件路径中最后一个/后的字符串
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">char</span>* fmtname(<span style="">char</span> *path){
+</span></span><span style="display:flex;"><span>    <span style="">char</span> *p;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// Find first character after last slash.
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="font-weight:bold">for</span>(p=path+strlen(path); p &gt;= path &amp;&amp; *p != <span style="font-style:italic">&#39;/&#39;</span>; p--)
+</span></span><span style="display:flex;"><span>        ;
+</span></span><span style="display:flex;"><span>    p++;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">return</span> p;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="">void</span> find(<span style="">char</span>* path, <span style="">char</span>* filename){
+</span></span><span style="display:flex;"><span>    <span style="">char</span> buf[512], *p;
+</span></span><span style="display:flex;"><span>    <span style="">int</span> fd;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">struct</span> dirent de;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">struct</span> stat st;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>((fd = open(path, 0)) &lt; 0){
+</span></span><span style="display:flex;"><span>        fprintf(2, <span style="font-style:italic">&#34;find: cannot open %s</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, path);
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">return</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(fstat(fd, &amp;st) &lt; 0){
+</span></span><span style="display:flex;"><span>        fprintf(2, <span style="font-style:italic">&#34;find: cannot stat %s</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, path);
+</span></span><span style="display:flex;"><span>        close(fd);
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">return</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">switch</span>(st.type){
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">case</span> T_FILE: <span style="font-style:italic">// 当前path是文件，判断是否符合要求
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>            <span style="font-weight:bold">if</span>(strcmp(fmtname(filename), fmtname(path)) == 0){
+</span></span><span style="display:flex;"><span>                printf(<span style="font-style:italic">&#34;%s</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>, path);
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>            <span style="font-weight:bold">break</span>;
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">case</span> T_DIR:  <span style="font-style:italic">// 如果当前path是目录，则读取目前中每一个条目
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>            <span style="font-weight:bold">if</span>(strlen(path) + 1 + DIRSIZ + 1 &gt; <span style="font-weight:bold">sizeof</span>(buf)){
+</span></span><span style="display:flex;"><span>                printf(<span style="font-style:italic">&#34;find: path too long</span><span style="font-weight:bold;font-style:italic">\n</span><span style="font-style:italic">&#34;</span>);
+</span></span><span style="display:flex;"><span>                <span style="font-weight:bold">break</span>;
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>            strcpy(buf, path);
+</span></span><span style="display:flex;"><span>            p = buf + strlen(buf);
+</span></span><span style="display:flex;"><span>            *p++ = <span style="font-style:italic">&#39;/&#39;</span>;
+</span></span><span style="display:flex;"><span>            <span style="font-weight:bold">while</span>(read(fd, &amp;de, <span style="font-weight:bold">sizeof</span>(de)) == <span style="font-weight:bold">sizeof</span>(de)){
+</span></span><span style="display:flex;"><span>                <span style="font-style:italic">// . 和 .. 需要剔除，避免递归死循环
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>                <span style="font-weight:bold">if</span>(de.inum == 0 || strcmp(de.name, <span style="font-style:italic">&#34;.&#34;</span>) == 0 || strcmp(de.name, <span style="font-style:italic">&#34;..&#34;</span>) == 0)
+</span></span><span style="display:flex;"><span>                    <span style="font-weight:bold">continue</span>;
+</span></span><span style="display:flex;"><span>                strcpy(p, de.name); <span style="font-style:italic">// 更新路径
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>                find(buf, filename);<span style="font-style:italic">// 递归查询
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>            }        
+</span></span><span style="display:flex;"><span>            <span style="font-weight:bold">break</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    close(fd);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="">int</span> main(<span style="">int</span> argc, <span style="">char</span>* argv[]){
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(argc == 2){
+</span></span><span style="display:flex;"><span>        find(<span style="font-style:italic">&#34;.&#34;</span>, argv[1]);
+</span></span><span style="display:flex;"><span>    }<span style="font-weight:bold">else</span> <span style="font-weight:bold">if</span>(argc == 3){
+</span></span><span style="display:flex;"><span>        find(argv[1], argv[2]);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    exit(0);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>效果如图
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab1-5.png" alt=""></p>
+<h3 id="xargs-moderate">
+  xargs (moderate)
+  <a class="heading-link" href="#xargs-moderate">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h3>
+<p>xargs命令是unix下一个十分有用的命令，它可以把输入的数据批量转换为要执行的命令的参数。核心就是按行批量处理输入数据，然后利用exec函数执行。</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="font-style:italic">// user/xargs.c
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="">#include</span> <span style="">&#34;kernel/types.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;kernel/stat.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;kernel/param.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style="">#include</span> <span style="">&#34;user/user.h&#34;</span><span style="">
+</span></span></span><span style="display:flex;"><span><span style=""></span>
+</span></span><span style="display:flex;"><span><span style="">int</span> main(<span style="">int</span> argc, <span style="">char</span>* argv[]){
+</span></span><span style="display:flex;"><span>    <span style="">char</span>* args[MAXARG];
+</span></span><span style="display:flex;"><span>    <span style="">char</span> line[1024];
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">if</span>(argc == 1){
+</span></span><span style="display:flex;"><span>        args[0] = <span style="font-style:italic">&#34;echo&#34;</span>;
+</span></span><span style="display:flex;"><span>    }<span style="font-weight:bold">else</span>{
+</span></span><span style="display:flex;"><span>        args[0] = argv[1];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="">char</span>* cmd = args[0];
+</span></span><span style="display:flex;"><span>    <span style="">int</span> x = 1;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">for</span>(<span style="">int</span> i = 2; i &lt; argc; ++i){
+</span></span><span style="display:flex;"><span>        args[x++] = argv[i];
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="font-style:italic">// read a line one time
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>    <span style="">int</span> n;
+</span></span><span style="display:flex;"><span>    <span style="font-weight:bold">while</span>((n = read(0, line, 1024)) &gt; 0){
+</span></span><span style="display:flex;"><span>        <span style="font-weight:bold">if</span>(fork() == 0){
+</span></span><span style="display:flex;"><span>            <span style="font-style:italic">// 子进程解析行并调用exec执行命令
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>           <span style="">int</span> index = x;
+</span></span><span style="display:flex;"><span>           <span style="">char</span>* arg = line;
+</span></span><span style="display:flex;"><span>           <span style="font-style:italic">// printf(&#34;line: [%s]\n&#34;, line);
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>           <span style="font-weight:bold">for</span>(<span style="">int</span> i = 0; i &lt; n; ++i){
+</span></span><span style="display:flex;"><span>               <span style="font-weight:bold">if</span>(line[i] == <span style="font-style:italic">&#39; &#39;</span> || line[i] == <span style="font-style:italic">&#39;\n&#39;</span>){
+</span></span><span style="display:flex;"><span>                   line[i] = 0;
+</span></span><span style="display:flex;"><span>                   args[index++] = arg;
+</span></span><span style="display:flex;"><span>                   arg = line + i + 1;
+</span></span><span style="display:flex;"><span>               }
+</span></span><span style="display:flex;"><span>           } 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>           args[index] = 0;
+</span></span><span style="display:flex;"><span>           exec(cmd, args);
+</span></span><span style="display:flex;"><span>        }<span style="font-weight:bold">else</span>{
+</span></span><span style="display:flex;"><span>            <span style="font-style:italic">// 父进程等待子进程执行完毕
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>            wait(0);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    exit(0);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>效果如图
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab1-6.png" alt=""></p>
+<h2 id="实验总结">
+  实验总结
+  <a class="heading-link" href="#%e5%ae%9e%e9%aa%8c%e6%80%bb%e7%bb%93">
+    <i class="fa fa-link" aria-hidden="true"></i>
+  </a>
+</h2>
+<hr>
+<p>总体来说该lab不难，主要是熟悉一些基本的概念,主要熟悉系统调用，像pipe, fork, fstat, exec等。最有趣的是primes，通过利用fork和管道，实现了数据的流水线并行处理。</p>
+<p>最后运行 make grade可 以得到该lab的所有测试如图
+<img src="https://raw.githubusercontent.com/Flash-boy/PicGo/master/6.S081/lab1-7.png" alt=""></p>
+
+      </div>
+
+
+      <footer>
+        
+
+
+        
+        
+        
+      </footer>
+    </article>
+
+    
+  </section>
+
+    </div>
+
+    <footer class="footer">
+  <section class="container">
+    ©
+    
+      2019 -
+    
+    2022
+     Yang Wei 
+    ·
+    
+    Powered by <a href="https://gohugo.io/">Hugo</a> & <a href="https://github.com/luizdepra/hugo-coder/">Coder</a>.
+    
+  </section>
+</footer>
+
+  </main>
+
+  
+  
+  <script src="../../../../js/coder.min.f411a1043e37c7c14dfb03f4d94d60d9ee69cfa413b16d0fd4f28695babb82bb.js" integrity="sha256-9BGhBD43x8FN&#43;wP02U1g2e5pz6QTsW0P1PKGlbq7grs="></script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</body>
+
+</html>
